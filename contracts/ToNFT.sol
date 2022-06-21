@@ -4,8 +4,8 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Nft2 is ERC721, Ownable {
-    constructor() ERC721("NFT2", "N2") {}
+contract ToNFT is ERC721, Ownable {
+    constructor() ERC721("ToNFT", "TO") {}
 
     address public toBridge;
 
