@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-// import "./Nft1.sol";
 
 /**
  * @title FromBridge
@@ -15,19 +14,54 @@ import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
  * from this chain to another Ethereum-based chain
  */
 contract FromBridge is IERC721Receiver, Ownable, Initializable {
-    enum TokenStatus { LOCKED, BURNED, RETURNED }
+
+    /**
+     * - LOCKED: After the token is requested by its owner to be converted
+     * to the other chain, the corresponding request will be in this state.
+     *
+     * - BURNED: If the token is in LOCKED state and then FromBridge receives
+     * a confirmation (by means of "confirm" function) from the server, if
+     * that confirmation transaction is successful, the request will jump to
+     * this state.
+     *
+     * - RETURNED: If the token is in LOCKED state and then FromBridge receives
+     * a claim-back request (by means of "claimBack" function) from the owner,
+     * if that claim-back transaction is successful, the request will jump to
+     * this state.
+     */
+    enum TokenState { LOCKED, BURNED, RETURNED }
 
     struct RequestDetail {
         uint256 tokenId;
         uint256 timestamp;
-        TokenStatus status;
+        TokenState state;
     }
 
+    /**
+     * - fromToken: Address of the ERC721 contract that tokens will be convert from.
+     * fromToken contract and fromBridge (this contract) must be on the same chain.
+     *
+     * - fromBridge: Address of this contract.
+     *
+     * - toToken: Address of the ERC721 contract that tokens will be convert to.
+     * fromToken contract and toToken contract might be on different chains.
+     *
+     * - toBridge: Address of the contract that mints new tokens corresponding to
+     * the old ones for users. toToken contract and toBridge contract must be on
+     * the same chain.
+     *
+     * - server: (Blockchain) Address of the server that confirms request and provides
+     * user signature to obtain the new token on the other chain.
+     *
+     * - lockTokenDuration: The duration the token owner needs to wait to claim back
+     * the token in case the request is not confirmed by the server.
+     */
     ERC721Burnable  public fromToken;
     address         public fromBridge;
     address         public toToken;
     address         public toBridge;
-    uint256         public lockNftDuration;
+    address         public server;
+    uint256         public lockTokenDuration;
     
     /**
      * The list stores all request for all users.
@@ -36,38 +70,50 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
      */
     mapping(address => RequestDetail[]) private _requestList;
 
-    event Request(address indexed owner,
+    event Request(
+        address indexed owner,
         uint256 indexed requestId,
         uint256 indexed tokenId,
-        uint256 timestamp);
+        uint256         timestamp);
+
+    event Burn(
+        address indexed owner,
+        uint256 indexed requestId,
+        uint256 indexed tokenId,
+        uint256         timestamp,
+        bytes           serverSignature);
+
+    modifier onlyServer(string memory errorMessage) {
+        require(msg.sender == server, errorMessage);
+        _;
+    }
 
     constructor() {}
 
-    /**
-     * @param fromTokenAddr_ Address of the ERC721 contract that tokens will be convert from.
-     * fromToken contract and fromBridge (this contract) must be on the same chain.
-     * @param toTokenAddr_ Address of the ERC721 contract that tokens will be convert to.
-     * fromToken contract and toToken contract might be on different chains.
-     * @param toBridgeAddr_ Address of the contract that mints new tokens corresponding to
-     * the old ones for users. toToken contract and toBridge contract must be on the same chain.
-     * @param lockNftDuration_ The duration the token owner needs to wait to claim back
-     * the token in case the request is not confirmed by the server
-     */
     function initialize(
         address fromTokenAddr_,
         address toTokenAddr_,
         address toBridgeAddr_,
-        uint256 lockNftDuration_
+        uint256 lockTokenDuration_
     ) external initializer {
         fromToken = ERC721Burnable(fromTokenAddr_);
-        fromBridge = address(this);
         toToken = toTokenAddr_;
         toBridge = toBridgeAddr_;
-        lockNftDuration = lockNftDuration_;
+        lockTokenDuration = lockTokenDuration_;
+
+        fromBridge = address(this);
+        server = msg.sender;
     }
 
     /**
-     * @notice The first function the user needs to call if he/she wished to
+     * @dev Change server
+     */
+    function setServer(address newServer) external onlyOwner {
+        server = newServer;
+    }
+
+    /**
+     * @dev The first function the user needs to call if he/she wished to
      * convert the NFT with ID "tokenId" to the other chain. The old NFT (on
      * this chain) will be transfered to the bridge if this transaction is successfully
      * executed.
@@ -85,9 +131,9 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
 
         // Save request
         uint256 requestTimestamp = block.timestamp;
-        _requestList[tokenOwner][requestId] = RequestDetail(tokenId, requestTimestamp, TokenStatus.LOCKED);
+        _requestList[tokenOwner][requestId] = RequestDetail(tokenId, requestTimestamp, TokenState.LOCKED);
 
-        // Emit event for backend to listen
+        // Emit event for server to listen
         emit Request(tokenOwner, requestId, tokenId, requestTimestamp);
     }
 
@@ -101,32 +147,66 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
      * claim a new token (which shall be identical to the old one) on the other chain.
      * SIGNATURE FORMAT:
      *      "ConfirmNftBurned" || fromToken || fromBridge || toToken || toBridge ||
-     *      token owner's address || request's ID || token's ID || request's timestamp
+     *      tokenOwner || requestId || tokenId || timestamp
      */
-    function confirm(address tokenOwner, uint256 requestId, bytes calldata signature) external {
+    function confirm(
+        address tokenOwner,
+        uint256 requestId,
+        bytes memory signature
+    ) external onlyServer("Only server is allowed to confirm request") {
+        // Retrieve request's detail from tokenOwner and requestId
         RequestDetail storage requestDetail = _requestList[tokenOwner][requestId];
-        require(requestDetail.status == TokenStatus.LOCKED, "Request is already finalized");
 
-        // bytes memory message = abi.encodePacked;
+        // Revert if the token is in BURNED or RETURNED state
+        require(requestDetail.state == TokenState.LOCKED, "Request is already finalized");
+
+        // Verify if server has confirmed (seen) this request (by signing it).
+        // This verification is also the verification if the owner
+        // would be able to obtain the new token on the other chain
+        bytes memory message = abi.encodePacked("ConfirmNftBurned",
+            address(fromToken), address(this),
+            toToken, toBridge,
+            tokenOwner, requestId,
+            requestDetail.tokenId, requestDetail.timestamp
+        );
+        require(_verifySignature(server, message, signature), "Invalid signature");
+
+        // Permanently burn the token
+        fromToken.burn(requestDetail.tokenId);
+
+        // Update the state
+        requestDetail.state = TokenState.BURNED;
+
+        // Emit event for user (frontend) to retrieve signature and then use it
+        // to obtain new token on the other chain.
+        emit Burn(tokenOwner, requestId, requestDetail.tokenId, requestDetail.timestamp, signature);
     }
 
     function claimBack(uint256 requestId) external {
         
     }
 
+    /**
+     * @dev Implement this function from IERC721Receiver interface
+     * to receive ERC721 token from user. Needed for token-locking
+     * functionality.
+     */
     function onERC721Received(
         address operator,
         address from,
         uint256 tokenId,
         bytes calldata data
     ) external pure virtual override returns (bytes4) {
+        // To suppress unused-variable warning
+        if (false) { operator; from; tokenId; data; }
+
         return IERC721Receiver.onERC721Received.selector;
     }
 
     function _verifySignature(
         address signer,
-        bytes calldata message,
-        bytes calldata signature
+        bytes memory message,
+        bytes memory signature
     ) internal view returns(bool) {
         return SignatureChecker.isValidSignatureNow(signer, keccak256(message), signature);
     }
