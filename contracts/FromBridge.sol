@@ -6,12 +6,13 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
-import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import "./utils/Signature.sol";
 
 /**
  * @title FromBridge
- * @dev This contract is used to convert the user's ERC721 NFTs
- * from this chain to another Ethereum-based chain
+ * @dev This contract carries out the first part of the process of bridging (converting)
+ * user's ERC721 NFTs from this chain to another chain. Both chains are Ethereum-based.
+ * The first part is essentially burning NFTs.
  */
 contract FromBridge is IERC721Receiver, Ownable, Initializable {
 
@@ -33,39 +34,41 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
 
     struct RequestDetail {
         uint256 timestamp;
+        uint256 waitingDurationToClaimBack;
         TokenState state;
     }
 
     /**
      * - fromToken: Address of the ERC721 contract that tokens will be convert from.
-     * fromToken contract and fromBridge (this contract) must be on the same chain.
      *
      * - fromBridge: Address of this contract.
+     * fromToken contract and fromBridge contract must be on the same chain.
      *
      * - toToken: Address of the ERC721 contract that tokens will be convert to.
      * fromToken contract and toToken contract might be on different chains.
      *
-     * - toBridge: Address of the contract that mints new tokens corresponding to
-     * the old ones for users. toToken contract and toBridge contract must be on
-     * the same chain.
+     * - toBridge: Address of the contract that carries out the second part of the bridging process.
+     * toToken contract and toBridge contract must be on the same chain.
      *
      * - server: (Blockchain) Address of the server that confirms request and provides
      * user signature to obtain the new token on the other chain.
      *
-     * - lockTokenDuration: The duration the token owner needs to wait to claim back
-     * the token in case the request is not confirmed by the server.
+     * - globalWaitingDurationToClaimBack: The duration the token owner needs to wait
+     * after requesting bridging token, in order to claim back the token in case the
+     * request is not confirmed by the server.
      */
     ERC721Burnable  public fromToken;
     address         public fromBridge;
     address         public toToken;
     address         public toBridge;
     address         public server;
-    uint256         public lockTokenDuration;
+    uint256         public globalWaitingDurationToClaimBack;
     
     /**
-     * The list stores all request for all users.
-     * A request is uniquely identified by the combination (user address, token's ID, nonce).
-     * The nonce is the RequestDetail[] array index. Therefore, the nonce of one request can
+     * Mapping from user address -> token's ID -> list of requests from that user on that token's ID.
+     * This mapping stores all request for all users.
+     * A request (RequestDetail) is uniquely identified by the combination (user address, token's ID, nonce).
+     * The nonce is the RequestDetail[] array's index. Therefore, the nonce of one request can
      * be duplicate with the nonce from another request that differs user address or token's ID.
      */
     mapping(address => mapping(uint256 => RequestDetail[])) private _requests;
@@ -74,7 +77,7 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
         address indexed owner,
         uint256 indexed tokenId,
         uint256 indexed nonce,
-        uint256         timestamp);
+        uint256         requestTimestamp);
 
     event Burn(
         address indexed owner,
@@ -102,12 +105,12 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
         address fromTokenAddr_,
         address toTokenAddr_,
         address toBridgeAddr_,
-        uint256 lockTokenDuration_
+        uint256 globalWaitingDurationToClaimBack_
     ) external initializer {
         fromToken = ERC721Burnable(fromTokenAddr_);
         toToken = toTokenAddr_;
         toBridge = toBridgeAddr_;
-        lockTokenDuration = lockTokenDuration_;
+        globalWaitingDurationToClaimBack = globalWaitingDurationToClaimBack_;
 
         fromBridge = address(this);
         server = msg.sender;
@@ -118,6 +121,13 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
      */
     function setServer(address newServer) external onlyOwner {
         server = newServer;
+    }
+
+    /**
+     * @dev Change globalWaitingDurationToClaimBack
+     */
+    function setGlobalWaitingDurationToClaimBack(uint256 newGlobalWaitingDurationToClaimBack) external onlyOwner {
+        globalWaitingDurationToClaimBack = newGlobalWaitingDurationToClaimBack;
     }
 
     /**
@@ -139,7 +149,7 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
 
         // Save request
         uint256 requestTimestamp = block.timestamp;
-        _requests[tokenOwner][tokenId].push(RequestDetail(requestTimestamp, TokenState.LOCKED));
+        _requests[tokenOwner][tokenId].push(RequestDetail(requestTimestamp, globalWaitingDurationToClaimBack, TokenState.LOCKED));
 
         // Emit event for server to listen
         emit Request(tokenOwner, tokenId, nonce, requestTimestamp);
@@ -155,7 +165,7 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
      * claim a new token (which shall be identical to the old one) on the other chain.
      * SIGNATURE FORMAT:
      *      "ConfirmNftBurned" || fromToken || fromBridge || toToken || toBridge ||
-     *      tokenOwner || tokenId || nonce || timestamp
+     *      tokenOwner || tokenId || nonce || requestTimestamp
      */
     function confirm(
         address tokenOwner,
@@ -178,7 +188,7 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
             tokenOwner, tokenId,
             nonce, requestDetail.timestamp
         );
-        require(_verifySignature(server, message, signature), "Invalid signature");
+        require(Signature.verifySignature(server, message, signature), "Invalid signature");
 
         // Permanently burn the token
         fromToken.burn(tokenId);
@@ -194,8 +204,8 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
     /**
      * @dev This function is for user to claim back his/her token at will in case the request
      * has not been confirmed by the server for any reason. However, the user must wait a
-     * time duration equals to "lockTokenDuration" after the request transaction in order for
-     * the claim back transaction to succeed.
+     * time duration equals to the request's "waitingDurationToClaimBack" after the request
+     * transaction in order for the claim back transaction to succeed.
      * @param tokenId The token's ID
      */
     function claimBack(uint256 tokenId) external {
@@ -212,8 +222,9 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
         // Only tokens in LOCKED state are allowed to be claimed back. Revert otherwise.
         require(requestDetail.state == TokenState.LOCKED, "The token has already been burned or claimed back");
 
-        // Only allow tokens to be claimed back after "lockTokenDuration" starting from request timestamp
-        require(block.timestamp > requestDetail.timestamp + lockTokenDuration, "Elapsed time from request is not enough");
+        // Only allow tokens to be claimed back after "waitingDurationToClaimBack" starting from request timestamp
+        require(block.timestamp > requestDetail.timestamp + requestDetail.waitingDurationToClaimBack,
+            "Elapsed time from request is not enough");
 
         // Update state
         requestDetail.state = TokenState.RETURNED;
@@ -240,13 +251,5 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
         if (false) { operator; from; tokenId; data; }
 
         return IERC721Receiver.onERC721Received.selector;
-    }
-
-    function _verifySignature(
-        address signer,
-        bytes memory message,
-        bytes memory signature
-    ) internal view returns(bool) {
-        return SignatureChecker.isValidSignatureNow(signer, keccak256(message), signature);
     }
 }
