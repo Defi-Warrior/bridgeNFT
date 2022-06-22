@@ -32,7 +32,6 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
     enum TokenState { LOCKED, BURNED, RETURNED }
 
     struct RequestDetail {
-        uint256 tokenId;
         uint256 timestamp;
         TokenState state;
     }
@@ -65,23 +64,32 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
     
     /**
      * The list stores all request for all users.
-     * A request is uniquely identified by the combination of a user address and a requestId.
-     * requestId is the RequestDetail[] array index.
+     * A request is uniquely identified by the combination (user address, token's ID, nonce).
+     * The nonce is the RequestDetail[] array index. Therefore, the nonce of one request can
+     * be duplicate with the nonce from another request that differs user address or token's ID.
      */
-    mapping(address => RequestDetail[]) private _requestList;
+    mapping(address => mapping(uint256 => RequestDetail[])) private _requests;
 
     event Request(
         address indexed owner,
-        uint256 indexed requestId,
         uint256 indexed tokenId,
+        uint256 indexed nonce,
         uint256         timestamp);
 
     event Burn(
         address indexed owner,
-        uint256 indexed requestId,
         uint256 indexed tokenId,
-        uint256         timestamp,
+        uint256 indexed nonce,
+        uint256         requestTimestamp,
+        uint256         burnTimestamp,
         bytes           serverSignature);
+
+    event Return(
+        address indexed owner,
+        uint256 indexed tokenId,
+        uint256 indexed nonce,
+        uint256         requestTimestamp,
+        uint256         returnTimestamp);
 
     modifier onlyServer(string memory errorMessage) {
         require(msg.sender == server, errorMessage);
@@ -114,7 +122,7 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
 
     /**
      * @dev The first function the user needs to call if he/she wished to
-     * convert the NFT with ID "tokenId" to the other chain. The old NFT (on
+     * convert the token with ID "tokenId" to the other chain. The old token (on
      * this chain) will be transfered to the bridge if this transaction is successfully
      * executed.
      * @param tokenId The token's ID
@@ -123,67 +131,98 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
         require(fromToken.ownerOf(tokenId) == msg.sender, "The token is not owned by message sender");
         address tokenOwner = msg.sender;
 
-        // Get requestId for this request
-        uint256 requestId = _requestList[tokenOwner].length;
+        // Get new nonce for this request
+        uint256 nonce = _requests[tokenOwner][tokenId].length;
 
-        // Transfer NFT to bridge in order to lock NFT
+        // Transfer token to bridge in order to lock token
         fromToken.safeTransferFrom(tokenOwner, address(this), tokenId);
 
         // Save request
         uint256 requestTimestamp = block.timestamp;
-        _requestList[tokenOwner][requestId] = RequestDetail(tokenId, requestTimestamp, TokenState.LOCKED);
+        _requests[tokenOwner][tokenId].push(RequestDetail(requestTimestamp, TokenState.LOCKED));
 
         // Emit event for server to listen
-        emit Request(tokenOwner, requestId, tokenId, requestTimestamp);
+        emit Request(tokenOwner, tokenId, nonce, requestTimestamp);
     }
 
     /**
      * @dev This function is called only by the server to confirm the request.
      * The token will be burned if this transaction is successfully executed.
      * @param tokenOwner The owner of the token in request
-     * @param requestId The request's ID
+     * @param nonce The request's nonce
      * @param signature This signature was signed by the server after the server
      * listened to the Request event. The token owner will use this signature to
      * claim a new token (which shall be identical to the old one) on the other chain.
      * SIGNATURE FORMAT:
      *      "ConfirmNftBurned" || fromToken || fromBridge || toToken || toBridge ||
-     *      tokenOwner || requestId || tokenId || timestamp
+     *      tokenOwner || tokenId || nonce || timestamp
      */
     function confirm(
         address tokenOwner,
-        uint256 requestId,
+        uint256 tokenId,
+        uint256 nonce,
         bytes memory signature
     ) external onlyServer("Only server is allowed to confirm request") {
-        // Retrieve request's detail from tokenOwner and requestId
-        RequestDetail storage requestDetail = _requestList[tokenOwner][requestId];
+        // Retrieve request's detail from tokenOwner, tokenId and nonce
+        RequestDetail storage requestDetail = _requests[tokenOwner][tokenId][nonce];
 
         // Revert if the token is in BURNED or RETURNED state
         require(requestDetail.state == TokenState.LOCKED, "Request is already finalized");
 
         // Verify if server has confirmed (seen) this request (by signing it).
         // This verification is also the verification if the owner
-        // would be able to obtain the new token on the other chain
+        // would be able to obtain the new token on the other chain.
         bytes memory message = abi.encodePacked("ConfirmNftBurned",
             address(fromToken), address(this),
             toToken, toBridge,
-            tokenOwner, requestId,
-            requestDetail.tokenId, requestDetail.timestamp
+            tokenOwner, tokenId,
+            nonce, requestDetail.timestamp
         );
         require(_verifySignature(server, message, signature), "Invalid signature");
 
         // Permanently burn the token
-        fromToken.burn(requestDetail.tokenId);
+        fromToken.burn(tokenId);
 
         // Update the state
         requestDetail.state = TokenState.BURNED;
 
         // Emit event for user (frontend) to retrieve signature and then use it
         // to obtain new token on the other chain.
-        emit Burn(tokenOwner, requestId, requestDetail.tokenId, requestDetail.timestamp, signature);
+        emit Burn(tokenOwner, tokenId, nonce, requestDetail.timestamp, block.timestamp, signature);
     }
 
-    function claimBack(uint256 requestId) external {
+    /**
+     * @dev This function is for user to claim back his/her token at will in case the request
+     * has not been confirmed by the server for any reason. However, the user must wait a
+     * time duration equals to "lockTokenDuration" after the request transaction in order for
+     * the claim back transaction to succeed.
+     * @param tokenId The token's ID
+     */
+    function claimBack(uint256 tokenId) external {
+        // Revert if there is no request from user on this token.
+        // Additionally, if the msg.sender is not the owner of the token, _requests[tokenOwner][tokenId]
+        // returns an empty array, so this statement also reverts.
+        require(_requests[msg.sender][tokenId].length > 0, "User has not submitted any request on this token");
+        address tokenOwner = msg.sender;
         
+        // Retrieve latest request on the token
+        uint256 nonce = _requests[tokenOwner][tokenId].length - 1;
+        RequestDetail storage requestDetail = _requests[tokenOwner][tokenId][nonce];
+
+        // Only tokens in LOCKED state are allowed to be claimed back. Revert otherwise.
+        require(requestDetail.state == TokenState.LOCKED, "The token has already been burned or claimed back");
+
+        // Only allow tokens to be claimed back after "lockTokenDuration" starting from request timestamp
+        require(block.timestamp > requestDetail.timestamp + lockTokenDuration, "Elapsed time from request is not enough");
+
+        // Update state
+        requestDetail.state = TokenState.RETURNED;
+
+        // Transfer token back to user
+        fromToken.safeTransferFrom(address(this), tokenOwner, tokenId);
+
+        // Emit event
+        emit Return(tokenOwner, tokenId, nonce, requestDetail.timestamp, block.timestamp);
     }
 
     /**
