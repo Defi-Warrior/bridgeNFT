@@ -135,10 +135,11 @@ contract ToBridge is Ownable, Initializable {
         require(msg.sender == requestId.tokenOwner, "Token can only be acquired by its owner");
 
         // 
-        require(requestId.nonce == _latestNonces[requestId.tokenOwner][requestId.tokenId], "This request has been disallowed to acquire token by the server");
+        require(requestId.nonce == _latestNonces[requestId.tokenOwner][requestId.tokenId],
+            "This request has been disallowed to acquire token by the server");
 
         // 
-        require(requestTimestamp + globalWaitingDurationToAcquire < block.timestamp, "Elapsed time from request is not enough");
+        require(block.timestamp > requestTimestamp + globalWaitingDurationToAcquire, "Elapsed time from request is not enough");
 
         // Mint a new token corresponding to the old one
         toToken.mint(requestId.tokenOwner, requestId.tokenId);
@@ -156,7 +157,7 @@ contract ToBridge is Ownable, Initializable {
             requestId.nonce,
             requestTimestamp,
             waitingDurationToAcquire,
-            acquirementTimestamp);
+            acquirementTimestamp); 
     }
 
     /**
@@ -173,6 +174,7 @@ contract ToBridge is Ownable, Initializable {
      */
     function disallowAcquirementByRequest(RequestId calldata requestId) external onlyServer("") {
         // require tokenId not yet minted
+        
     }
 
     /**
