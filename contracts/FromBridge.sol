@@ -102,14 +102,14 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
     constructor() {}
 
     function initialize(
-        address fromTokenAddr_,
-        address toTokenAddr_,
-        address toBridgeAddr_,
+        address fromToken_,
+        address toToken_,
+        address toBridge_,
         uint256 globalWaitingDurationToClaimBack_
     ) external initializer {
-        fromToken = ERC721Burnable(fromTokenAddr_);
-        toToken = toTokenAddr_;
-        toBridge = toBridgeAddr_;
+        fromToken = ERC721Burnable(fromToken_);
+        toToken = toToken_;
+        toBridge = toBridge_;
         globalWaitingDurationToClaimBack = globalWaitingDurationToClaimBack_;
 
         fromBridge = address(this);
@@ -145,11 +145,12 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
         uint256 nonce = _requests[tokenOwner][tokenId].length;
 
         // Transfer token to bridge in order to lock token
-        fromToken.safeTransferFrom(tokenOwner, address(this), tokenId);
+        fromToken.safeTransferFrom(tokenOwner, fromBridge, tokenId);
 
         // Save request
         uint256 requestTimestamp = block.timestamp;
-        _requests[tokenOwner][tokenId].push(RequestDetail(requestTimestamp, globalWaitingDurationToClaimBack, TokenState.LOCKED));
+        uint256 waitingDurationToClaimBack = globalWaitingDurationToClaimBack;
+        _requests[tokenOwner][tokenId].push(RequestDetail(requestTimestamp, waitingDurationToClaimBack, TokenState.LOCKED));
 
         // Emit event for server to listen
         emit Request(tokenOwner, tokenId, nonce, requestTimestamp);
@@ -183,7 +184,7 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
         // This verification is also the verification if the owner
         // would be able to obtain the new token on the other chain.
         bytes memory message = abi.encodePacked("ConfirmNftBurned",
-            address(fromToken), address(this),
+            address(fromToken), fromBridge,
             toToken, toBridge,
             tokenOwner, tokenId,
             nonce, requestDetail.timestamp
@@ -230,7 +231,7 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
         requestDetail.state = TokenState.RETURNED;
 
         // Transfer token back to user
-        fromToken.safeTransferFrom(address(this), tokenOwner, tokenId);
+        fromToken.safeTransferFrom(fromBridge, tokenOwner, tokenId);
 
         // Emit event
         emit Return(tokenOwner, tokenId, nonce, requestDetail.timestamp, block.timestamp);
