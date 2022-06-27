@@ -206,6 +206,7 @@ contract ToBridge is Ownable, Initializable {
     /**
      * @dev The server could reallow acquirement by a request that was previously rejected 
      * @param requestId Consists of token owner's address, token's ID and nonce.
+     * @param requestTimestamp The request's timestamp
      */
     function forceMintAfterReject(RequestId calldata requestId, uint256 requestTimestamp)
             external onlyServer("Only server is allowed to force mint") {
@@ -241,6 +242,7 @@ contract ToBridge is Ownable, Initializable {
      * @dev The token had been acquired if and only if the "_acquirements" mapping would
      * have stored non-default values in the AcquirementDetail struct. The default value
      * of every storage slot is 0.
+     * @param tokenId The token's ID on old chain.
      * @return true if the token has already been acquired.
      */
     function _isAcquired(uint256 tokenId) internal view returns (bool) {
@@ -251,6 +253,7 @@ contract ToBridge is Ownable, Initializable {
      * @dev The request has been rejected by the server if and only if the nonce coming from the
      * request (which originated from FromBridge) and the nonce stored in "_latestNonces"
      * are unequal.
+     * @param requestId Consists of token owner's address, token's ID and nonce.
      * @return true if the request has been rejected by the server.
      */
     function _isRejected(RequestId calldata requestId) internal view returns (bool) {
