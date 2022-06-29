@@ -12,31 +12,9 @@ import "./utils/Signature.sol";
  * @title FromBridge
  * @dev This contract carries out the first part of the process of bridging (converting)
  * user's ERC721 NFTs from this chain to another chain. Both chains are Ethereum-based.
- * The first part is essentially burning NFTs.
+ * The first part is essentially committing (by validator) and burning NFTs.
  */
-contract FromBridge is IERC721Receiver, Ownable, Initializable {
-
-    /**
-     * - LOCKED: After the token is requested by its owner to be converted
-     * to the other chain, the corresponding request will be in this state.
-     *
-     * - BURNED: If the token is in LOCKED state and then FromBridge receives
-     * a confirmation (by means of "confirm" function) from the server, if
-     * that confirmation transaction is successful, the request will jump to
-     * this state.
-     *
-     * - RETURNED: If the token is in LOCKED state and then FromBridge receives
-     * a claim-back request (by means of "claimBack" function) from the owner,
-     * if that claim-back transaction is successful, the request will jump to
-     * this state.
-     */
-    enum TokenState { LOCKED, BURNED, RETURNED }
-
-    struct RequestDetail {
-        uint256 timestamp;
-        uint256 waitingDurationToClaimBack;
-        TokenState state;
-    }
+contract FromBridge is Ownable, Initializable {     
 
     /**
      * - fromToken: Address of the ERC721 contract that tokens will be convert from.
@@ -50,52 +28,24 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
      * - toBridge: Address of the contract that carries out the second part of the bridging process.
      * toToken contract and toBridge contract must be on the same chain.
      *
-     * - server: (Blockchain) Address of the server that confirms request and provides
-     * user signature to obtain the new token on the other chain.
-     *
-     * - globalWaitingDurationToClaimBack: The duration the token owner needs to wait
-     * after requesting bridging token, in order to claim back the token in case the
-     * request is not confirmed by the server.
+     * - validator: (Blockchain) Address of the validator that provides owner signature
+     * and "secret" to obtain the new token on the other chain.
      */
     ERC721Burnable  public fromToken;
     address         public fromBridge;
     address         public toToken;
     address         public toBridge;
-    address         public server;
-    uint256         public globalWaitingDurationToClaimBack;
-    
-    /**
-     * Mapping from user address -> token's ID -> list of requests from that user on that token's ID.
-     * This mapping stores all request for all users.
-     * A request (RequestDetail) is uniquely identified by the combination (user address, token's ID, nonce).
-     * The nonce is the RequestDetail[] array's index. Therefore, the nonce of one request can
-     * be duplicate with the nonce from another request that differs user address or token's ID.
-     */
-    mapping(address => mapping(uint256 => RequestDetail[])) private _requests;
+    address         public validator;
 
-    event Request(
-        address indexed owner,
+    event Commit(
+        address indexed tokenOwner,
         uint256 indexed tokenId,
-        uint256 indexed nonce,
-        uint256         requestTimestamp);
-
-    event Burn(
-        address indexed owner,
-        uint256 indexed tokenId,
-        uint256 indexed nonce,
+        bytes32         commitment,
         uint256         requestTimestamp,
-        uint256         burnTimestamp,
-        bytes           serverSignature);
+        bytes           validatorSignature);
 
-    event Return(
-        address indexed owner,
-        uint256 indexed tokenId,
-        uint256 indexed nonce,
-        uint256         requestTimestamp,
-        uint256         returnTimestamp);
-
-    modifier onlyServer(string memory errorMessage) {
-        require(msg.sender == server, errorMessage);
+    modifier onlyValidator(string memory errorMessage) {
+        require(msg.sender == validator, errorMessage);
         _;
     }
 
@@ -104,153 +54,76 @@ contract FromBridge is IERC721Receiver, Ownable, Initializable {
     function initialize(
         address fromToken_,
         address toToken_,
-        address toBridge_,
-        uint256 globalWaitingDurationToClaimBack_
+        address toBridge_
     ) external initializer {
         fromToken = ERC721Burnable(fromToken_);
         toToken = toToken_;
         toBridge = toBridge_;
-        globalWaitingDurationToClaimBack = globalWaitingDurationToClaimBack_;
 
         fromBridge = address(this);
-        server = msg.sender;
+        validator = msg.sender;
     }
 
     /**
-     * @dev Change server
+     * @dev Change validator
      */
-    function setServer(address newServer) external onlyOwner {
-        server = newServer;
+    function setValidator(address newValidator) external onlyOwner {
+        validator = newValidator;
     }
 
     /**
-     * @dev Change globalWaitingDurationToClaimBack
-     */
-    function setGlobalWaitingDurationToClaimBack(uint256 newGlobalWaitingDurationToClaimBack) external onlyOwner {
-        globalWaitingDurationToClaimBack = newGlobalWaitingDurationToClaimBack;
-    }
-
-    /**
-     * @dev The first function the user needs to call if he/she wished to
-     * convert the token with ID "tokenId" to the other chain. The old token (on
-     * this chain) will be transfered to the bridge if this transaction is successfully
-     * executed.
-     * @param tokenId The token's ID
-     */
-    function request(uint256 tokenId) external {
-        require(fromToken.ownerOf(tokenId) == msg.sender, "The token is not owned by message sender");
-        address tokenOwner = msg.sender;
-
-        // Get new nonce for this request
-        uint256 nonce = _requests[tokenOwner][tokenId].length;
-
-        // Transfer token to bridge in order to lock token
-        fromToken.safeTransferFrom(tokenOwner, fromBridge, tokenId);
-
-        // Save request
-        uint256 requestTimestamp = block.timestamp;
-        uint256 waitingDurationToClaimBack = globalWaitingDurationToClaimBack;
-        _requests[tokenOwner][tokenId].push(RequestDetail(requestTimestamp, waitingDurationToClaimBack, TokenState.LOCKED));
-
-        // Emit event for server to listen
-        emit Request(tokenOwner, tokenId, nonce, requestTimestamp);
-    }
-
-    /**
-     * @dev This function is called only by the server to confirm the request.
-     * The token will be burned if this transaction is successfully executed.
-     * @param tokenOwner The owner of the token in request
-     * @param nonce The request's nonce
-     * @param signature This signature was signed by the server after the server
-     * listened to the Request event. The token owner will use this signature to
-     * claim a new token (which shall be identical to the old one) on the other chain.
+     * @dev This function is called only by the validator to submit the commitment
+     * and burn token at the same time. The token will be burned if this transaction
+     * is successfully executed.
+     * @param tokenOwner The owner of the requested token.
+     * @param tokenId The ID of the requested token.
+     * @param commitment The validator's commitment.
+     * @param requestTimestamp The timestamp when the validator received request
+     * @param ownerSignature This signature is the prove that the owner indeed requested
+     * the token to be bridged.
      * SIGNATURE FORMAT:
-     *      "ConfirmNftBurned" || fromToken || fromBridge || toToken || toBridge ||
-     *      tokenOwner || tokenId || nonce || requestTimestamp
+     *      "RequestTokenBurn" || fromToken || fromBridge || toToken || toBridge ||
+     *      tokenOwner || tokenId
+     * @param validatorSignature This signature was signed by the validator after verifying
+     * that the requester is the token's owner and ToBridge is approved on this token.
+     * The owner will use this signature at FromBridge to acquire or claim a new token
+     * (which shall be identical to the old one) on the other chain.
+     * SIGNATURE FORMAT:
+     *      "Commit" || fromToken || fromBridge || toToken || toBridge ||
+     *      tokenOwner || tokenId || commitment || requestTimestamp
      */
-    function confirm(
+    function commitAndBurn(
         address tokenOwner,
         uint256 tokenId,
-        uint256 nonce,
-        bytes memory signature
-    ) external onlyServer("Only server is allowed to confirm request") {
-        // Retrieve request's detail from tokenOwner, tokenId and nonce
-        RequestDetail storage requestDetail = _requests[tokenOwner][tokenId][nonce];
+        bytes32 commitment,
+        uint256 requestTimestamp,
+        bytes memory ownerSignature,
+        bytes memory validatorSignature
+    ) external onlyValidator("Only validator is allowed to commit") {
+        // Verify owner's signature
+        bytes memory ownerMessage = abi.encodePacked("RequestTokenBurn",
+            address(fromToken), fromBridge,
+            toToken, toBridge,
+            tokenOwner, tokenId
+        );
+        require(Signature.verifySignature(tokenOwner, ownerMessage, ownerSignature), "Invalid owner signature");
 
-        // Revert if the token is in BURNED or RETURNED state
-        require(requestDetail.state == TokenState.LOCKED, "Request is already finalized");
-
-        // Verify if server has confirmed (seen) this request (by signing it).
-        // This verification is also the verification if the owner
-        // would be able to obtain the new token on the other chain.
-        bytes memory message = abi.encodePacked("ConfirmNftBurned",
+        // Verify validator's signature
+        bytes memory validatorMessage = abi.encodePacked("Commit",
             address(fromToken), fromBridge,
             toToken, toBridge,
             tokenOwner, tokenId,
-            nonce, requestDetail.timestamp
+            commitment, requestTimestamp
         );
-        require(Signature.verifySignature(server, message, signature), "Invalid signature");
+        require(Signature.verifySignature(validator, validatorMessage, validatorSignature), "Invalid validator signature");
+
+        // Check ownership's correctness
+        require(fromToken.ownerOf(tokenId) == tokenOwner, "The token's owner is incorrect");
 
         // Permanently burn the token
         fromToken.burn(tokenId);
 
-        // Update the state
-        requestDetail.state = TokenState.BURNED;
-
-        // Emit event for user (frontend) to retrieve signature and then use it
-        // to obtain new token on the other chain.
-        emit Burn(tokenOwner, tokenId, nonce, requestDetail.timestamp, block.timestamp, signature);
-    }
-
-    /**
-     * @dev This function is for user to claim back his/her token at will in case the request
-     * has not been confirmed by the server for any reason. However, the user must wait a
-     * time duration equals to the request's "waitingDurationToClaimBack" after the request
-     * transaction in order for the claim back transaction to succeed.
-     * @param tokenId The token's ID
-     */
-    function claimBack(uint256 tokenId) external {
-        // Revert if there is no request from user on this token.
-        // Additionally, if the msg.sender is not the owner of the token, _requests[tokenOwner][tokenId]
-        // returns an empty array, so this statement also reverts.
-        require(_requests[msg.sender][tokenId].length > 0, "User has not submitted any request on this token");
-        address tokenOwner = msg.sender;
-        
-        // Retrieve latest request on the token
-        uint256 nonce = _requests[tokenOwner][tokenId].length - 1;
-        RequestDetail storage requestDetail = _requests[tokenOwner][tokenId][nonce];
-
-        // Only tokens in LOCKED state are allowed to be claimed back. Revert otherwise.
-        require(requestDetail.state == TokenState.LOCKED, "The token has already been burned or claimed back");
-
-        // Only allow tokens to be claimed back after "waitingDurationToClaimBack" starting from request timestamp
-        require(block.timestamp > requestDetail.timestamp + requestDetail.waitingDurationToClaimBack,
-            "Elapsed time from request is not enough");
-
-        // Update state
-        requestDetail.state = TokenState.RETURNED;
-
-        // Transfer token back to user
-        fromToken.safeTransferFrom(fromBridge, tokenOwner, tokenId);
-
-        // Emit event
-        emit Return(tokenOwner, tokenId, nonce, requestDetail.timestamp, block.timestamp);
-    }
-
-    /**
-     * @dev Implement this function from IERC721Receiver interface
-     * to receive ERC721 token from user. Needed for token-locking
-     * functionality.
-     */
-    function onERC721Received(
-        address operator,
-        address from,
-        uint256 tokenId,
-        bytes calldata data
-    ) external pure virtual override returns (bytes4) {
-        // To suppress unused-variable warning
-        if (false) { operator; from; tokenId; data; }
-
-        return IERC721Receiver.onERC721Received.selector;
+        // Emit event for owner (frontend) to retrieve commitment, timestamp and signature
+        emit Commit(tokenOwner, tokenId, commitment, requestTimestamp, validatorSignature);
     }
 }
