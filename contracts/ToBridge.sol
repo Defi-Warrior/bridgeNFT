@@ -40,18 +40,20 @@ contract ToBridge is Ownable, Initializable {
      * - toBridge: Address of this contract.
      * toToken contract and toBridge contract must be on the same chain.
      *
-     * - server: (Blockchain) Address of the server that confirms request on the other chain
+     * - validator: (Blockchain) Address of the validator that confirms request on the other chain
      * and provides user signature to obtain the new token on this chain.
      *
-     * - globalWaitingDurationToAcquire: The duration the token owner needs to wait
+     * - globalWaitingDurationForOldTokenToBeBurned: The duration the token owner needs to wait
      * after requesting bridging token at fromBridge, in order to acquire the new token.
+     * - globalWaitingDurationToAcquireByClaim: 
      */
     address public fromToken;
     address public fromBridge;
     ToNFT   public toToken;
     address public toBridge;
-    address public server;
-    uint256 public globalWaitingDurationToAcquire;
+    address public validator;
+    uint256 public globalWaitingDurationForOldTokenToBeBurned;
+    uint256 public globalWaitingDurationToAcquireByClaim;
 
     /**
      * Mapping from token's ID on OLD chain -> the acquirement on that token's ID.
@@ -85,8 +87,8 @@ contract ToBridge is Ownable, Initializable {
         uint256 indexed nonce,
         uint256         forceMintTimestamp);
 
-    modifier onlyServer(string memory errorMessage) {
-        require(msg.sender == server, errorMessage);
+    modifier onlyValidator(string memory errorMessage) {
+        require(msg.sender == validator, errorMessage);
         _;
     }
 
@@ -104,14 +106,14 @@ contract ToBridge is Ownable, Initializable {
         globalWaitingDurationToAcquire = globalWaitingDurationToAcquire_;
 
         toBridge = address(this);
-        server = msg.sender;
+        validator = msg.sender;
     }
 
     /**
-     * @dev Change server
+     * @dev Change validator
      */
-    function setServer(address newServer) external onlyOwner {
-        server = newServer;
+    function setValidator(address newValidator) external onlyOwner {
+        validator = newValidator;
     }
 
     /**
@@ -125,7 +127,7 @@ contract ToBridge is Ownable, Initializable {
      * @dev User calls this function to get new token corresponding to the old one.
      * @param requestId Consists of token owner's address, token's ID and nonce.
      * @param requestTimestamp The request timestamp stored in FromBridge.
-     * @param signature This signature was signed by the server to confirm the request
+     * @param signature This signature was signed by the validator to confirm the request
      * after seeing the "Request" event emitted from FromBridge.
      */
     function acquire(
@@ -140,7 +142,7 @@ contract ToBridge is Ownable, Initializable {
             requestId.tokenOwner, requestId.tokenId,
             requestId.nonce, requestTimestamp
         );
-        require(Signature.verifySignature(server, message, signature), "Invalid signature");
+        require(Signature.verifySignature(validator, message, signature), "Invalid signature");
 
         // The token must not have been acquired
         require(!_isAcquired(requestId.tokenId), "Token has been acquired");
@@ -151,8 +153,8 @@ contract ToBridge is Ownable, Initializable {
         // Revert if user did not wait enough time
         require(block.timestamp > requestTimestamp + globalWaitingDurationToAcquire, "Elapsed time from request is not enough");
 
-        // Revert if request had been rejected by server
-        require(!_isRejected(requestId), "This request for token acquirement has been rejected by the server");
+        // Revert if request had been rejected by validator
+        require(!_isRejected(requestId), "This request for token acquirement has been rejected by the validator");
 
         // Save acquirement
         uint256 waitingDurationToAcquire = globalWaitingDurationToAcquire;
@@ -176,9 +178,9 @@ contract ToBridge is Ownable, Initializable {
     }
 
     /**
-     * @dev In case the server noticed that the confirmation transaction sent to fromBridge had not
+     * @dev In case the validator noticed that the confirmation transaction sent to fromBridge had not
      * been finalized (i.e not included in some block that is, for example, 6 blocks backward
-     * from the newest block) after a specific period of time (e.g 10 minutes), the server would
+     * from the newest block) after a specific period of time (e.g 10 minutes), the validator would
      * call this function to reject user to acquire token by using that unconfirmed request.
      * 
      * It should be noted that the request sent to this function must be the latest request
@@ -188,7 +190,7 @@ contract ToBridge is Ownable, Initializable {
      * @param requestId Consists of token owner's address, token's ID and nonce.
      */
     function rejectAcquirementByRequest(RequestId calldata requestId)
-            external onlyServer("Only server is allowed to reject request") {
+            external onlyValidator("Only validator is allowed to reject request") {
         // The token must not have been acquired
         require(!_isAcquired(requestId.tokenId), "Token has been acquired");
 
@@ -204,12 +206,12 @@ contract ToBridge is Ownable, Initializable {
     }
 
     /**
-     * @dev The server could reallow acquirement by a request that was previously rejected 
+     * @dev The validator could reallow acquirement by a request that was previously rejected 
      * @param requestId Consists of token owner's address, token's ID and nonce.
      * @param requestTimestamp The request's timestamp
      */
     function forceMintAfterReject(RequestId calldata requestId, uint256 requestTimestamp)
-            external onlyServer("Only server is allowed to force mint") {
+            external onlyValidator("Only validator is allowed to force mint") {
         // The token must not have been acquired
         require(!_isAcquired(requestId.tokenId), "Token has been acquired");
 
@@ -250,11 +252,11 @@ contract ToBridge is Ownable, Initializable {
     }
 
     /**
-     * @dev The request has been rejected by the server if and only if the nonce coming from the
+     * @dev The request has been rejected by the validator if and only if the nonce coming from the
      * request (which originated from FromBridge) and the nonce stored in "_latestNonces"
      * are unequal.
      * @param requestId Consists of token owner's address, token's ID and nonce.
-     * @return true if the request has been rejected by the server.
+     * @return true if the request has been rejected by the validator.
      */
     function _isRejected(RequestId calldata requestId) internal view returns (bool) {
         return requestId.nonce != _latestNonces[requestId.tokenOwner][requestId.tokenId];
