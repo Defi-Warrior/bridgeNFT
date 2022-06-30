@@ -79,18 +79,14 @@ contract FromBridge is Ownable, Initializable {
      * @param tokenId The ID of the requested token.
      * @param commitment The validator's commitment.
      * @param requestTimestamp The timestamp when the validator received request
-     * @param ownerSignature This signature is the prove that the owner indeed requested
-     * the token to be bridged.
-     * SIGNATURE FORMAT:
-     *      "RequestTokenBurn" || fromToken || fromBridge || toToken || toBridge ||
-     *      tokenOwner || tokenId
+     * @param ownerSignature This signature is signed by the token's owner, and is the prove
+     * that the owner indeed requested the token to be bridged.
+     * For signature format, see "_verifyOwnerSignature" function.
      * @param validatorSignature This signature was signed by the validator after verifying
      * that the requester is the token's owner and ToBridge is approved on this token.
      * The owner will use this signature at FromBridge to acquire or claim a new token
      * (which shall be identical to the old one) on the other chain.
-     * SIGNATURE FORMAT:
-     *      "Commit" || fromToken || fromBridge || toToken || toBridge ||
-     *      tokenOwner || tokenId || commitment || requestTimestamp
+     * For signature format, see "_verifyValidatorSignature" function.
      */
     function commitAndBurn(
         address tokenOwner,
@@ -101,21 +97,13 @@ contract FromBridge is Ownable, Initializable {
         bytes memory validatorSignature
     ) external onlyValidator("Only validator is allowed to commit") {
         // Verify owner's signature
-        bytes memory ownerMessage = abi.encodePacked("RequestTokenBurn",
-            address(fromToken), fromBridge,
-            toToken, toBridge,
-            tokenOwner, tokenId
-        );
-        require(Signature.verifySignature(tokenOwner, ownerMessage, ownerSignature), "Invalid owner signature");
+        require(_verifyOwnerSignature(tokenOwner, tokenId, ownerSignature), "Invalid owner signature");
 
         // Verify validator's signature
-        bytes memory validatorMessage = abi.encodePacked("Commit",
-            address(fromToken), fromBridge,
-            toToken, toBridge,
-            tokenOwner, tokenId,
-            commitment, requestTimestamp
-        );
-        require(Signature.verifySignature(validator, validatorMessage, validatorSignature), "Invalid validator signature");
+        // Retrieve tokenURI to gather all necessary materials to craft signed message
+        string memory tokenUri = fromToken.tokenURI(tokenId);
+        require(_verifyValidatorSignature(tokenOwner, tokenId, tokenUri, commitment, requestTimestamp, validatorSignature),
+            "Invalid validator signature");
 
         // Check ownership's correctness
         require(fromToken.ownerOf(tokenId) == tokenOwner, "The token's owner is incorrect");
@@ -125,5 +113,70 @@ contract FromBridge is Ownable, Initializable {
 
         // Emit event for owner (frontend) to retrieve commitment, timestamp and signature
         emit Commit(tokenOwner, tokenId, commitment, requestTimestamp, validatorSignature);
+    }
+
+    /**
+     * @dev Right now the message is crafted using plain string concatenation.
+     * Will upgrade to EIP-712 later.
+     * @param tokenOwner The owner of the requested token.
+     * @param tokenId The ID of the requested token.
+     * @param signature This signature is signed by the token's owner, and is the prove
+     * that the owner indeed requested the token to be bridged.
+     * SIGNATURE FORMAT:
+     *      "RequestTokenBurn" || fromToken || fromBridge || toToken || toBridge ||
+     *      tokenOwner || tokenId
+     */
+    function _verifyOwnerSignature(
+        address tokenOwner,
+        uint256 tokenId,
+        bytes memory signature
+    ) internal view returns (bool) {
+        // Craft signed message
+        bytes memory message = abi.encodePacked("RequestTokenBurn",
+            address(fromToken), fromBridge,
+            toToken, toBridge,
+            tokenOwner, tokenId
+        );
+
+        return Signature.verifySignature(tokenOwner, message, signature);
+    }
+
+    /**
+     * @dev Right now the message is crafted using plain string concatenation.
+     * Will upgrade to EIP-712 later.
+     * @param tokenOwner The owner of the requested token.
+     * @param tokenId The ID of the requested token.
+     * @param tokenUri The URI of the request token.
+     * @param commitment The validator's commitment.
+     * @param requestTimestamp The timestamp when the validator received request
+     * @param signature This signature was signed by the validator after verifying
+     * that the requester is the token's owner and ToBridge is approved on this token.
+     * The owner will use this signature at FromBridge to acquire or claim a new token
+     * (which shall be identical to the old one) on the other chain.
+     * SIGNATURE FORMAT:
+     *      "Commit" || fromToken || fromBridge || toToken || toBridge ||
+     *      tokenOwner || tokenId || tokenUri || commitment || requestTimestamp
+     */
+    function _verifyValidatorSignature(
+        address tokenOwner,
+        uint256 tokenId,
+        string memory tokenUri,
+        bytes32 commitment,
+        uint256 requestTimestamp,
+        bytes memory signature
+    ) internal view returns (bool) {
+        // Craft signed message
+        bytes memory message = abi.encodePacked("Commit",
+            address(fromToken), fromBridge,
+            toToken, toBridge,
+            tokenOwner, tokenId,
+            // Note that the "tokenUri" variable's size is dynamic so
+            // it needs to be hashed when crafting message for security reason.
+            // Here abi.encodePacked is used only to convert string to bytes.
+            keccak256(abi.encodePacked(tokenUri)),
+            commitment, requestTimestamp
+        );
+
+        return Signature.verifySignature(validator, message, signature);
     }
 }
