@@ -49,19 +49,21 @@ contract FromBridge is Ownable, Initializable {
         _;
     }
 
-    constructor() {}
-
+    /**
+     * @dev To be called immediately after contract deployment. Replaces constructor.
+     */
     function initialize(
         address fromToken_,
         address toToken_,
-        address toBridge_
-    ) external initializer {
-        fromToken = ERC721Burnable(fromToken_);
+        address toBridge_,
+        address validator_
+    ) public virtual onlyOwner initializer {
         toToken = toToken_;
         toBridge = toBridge_;
+        validator = validator_;
 
+        fromToken = ERC721Burnable(fromToken_);
         fromBridge = address(this);
-        validator = msg.sender;
     }
 
     /**
@@ -89,12 +91,9 @@ contract FromBridge is Ownable, Initializable {
      * For message format, see "verifyValidatorSignature" function in "Signature.sol" contract.
      */
     function commitAndBurn(
-        address tokenOwner,
-        uint256 tokenId,
-        bytes32 commitment,
-        uint256 requestTimestamp,
-        bytes memory ownerSignature,
-        bytes memory validatorSignature
+        address tokenOwner, uint256 tokenId,
+        bytes32 commitment, uint256 requestTimestamp,
+        bytes memory ownerSignature, bytes memory validatorSignature
     ) external onlyValidator("Only validator is allowed to commit") {
         // Verify owner's signature
         require(
