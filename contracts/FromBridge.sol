@@ -1,7 +1,6 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
@@ -12,7 +11,9 @@ import "./utils/Signature.sol";
  * @title FromBridge
  * @dev This contract carries out the first part of the process of bridging (converting)
  * user's ERC721 NFTs from this chain to another chain. Both chains are Ethereum-based.
- * The first part is essentially committing (by validator) and burning NFTs.
+ * The first part is essentially committing (by validator) and processing NFTs.
+ * The processing action is either permanent burning or holding custody of the token,
+ * depending on implementation.
  */
 contract FromBridge is Ownable, Initializable {     
 
@@ -75,8 +76,9 @@ contract FromBridge is Ownable, Initializable {
 
     /**
      * @dev This function is called only by the validator to submit the commitment
-     * and burn token at the same time. The token will be burned if this transaction
-     * is successfully executed.
+     * and process the token at the same time. The token will be processed if this transaction
+     * is successfully executed. The processing action is either permanent burning or holding
+     * custody of the token, depending on implementation.
      * @param tokenOwner The owner of the requested token.
      * @param tokenId The ID of the requested token.
      * @param commitment The validator's commitment.
@@ -85,22 +87,46 @@ contract FromBridge is Ownable, Initializable {
      * that the owner indeed requested the token to be bridged.
      * For message format, see "verifyOwnerSignature" function in "Signature.sol" contract.
      * @param validatorSignature This signature was signed by the validator after verifying
-     * that the requester is the token's owner and ToBridge is approved on this token.
-     * The owner will use this signature at FromBridge to acquire or claim a new token
+     * that the requester is the token's owner and FromBridge is approved on this token.
+     * The owner will use this signature at ToBridge to acquire or claim a new token
      * (which shall be identical to the old one) on the other chain.
      * For message format, see "verifyValidatorSignature" function in "Signature.sol" contract.
      */
-    function commitAndBurn(
+    function commit(
         address tokenOwner, uint256 tokenId,
         bytes32 commitment, uint256 requestTimestamp,
         bytes memory ownerSignature, bytes memory validatorSignature
-    ) external onlyValidator("Only validator is allowed to commit") {
+    ) external onlyValidator("Commit: Only validator is allowed to commit") {
+        // Check all requirements to commit
+        _checkCommitRequirements(
+            tokenOwner, tokenId,
+            commitment, requestTimestamp,
+            ownerSignature, validatorSignature);
+
+        // Process the token
+        _processToken(tokenId);
+
+        // Emit event for owner (frontend) to retrieve commitment, timestamp and signature
+        emit Commit(tokenOwner, tokenId, commitment, requestTimestamp, validatorSignature);
+    }
+
+    /**
+     * @dev Check all requirements of the commit process. If an inheriting contract has more
+     * requirements, when overriding it should first call super._checkCommitRequirements(...)
+     * then add its own requirements.
+     * Parameters are the same as "commit" function.
+     */
+    function _checkCommitRequirements(
+        address tokenOwner, uint256 tokenId,
+        bytes32 commitment, uint256 requestTimestamp,
+        bytes memory ownerSignature, bytes memory validatorSignature
+    ) internal view virtual {
         // Verify owner's signature
         require(
             _verifyOwnerSignature(
                 tokenOwner, tokenId,
                 ownerSignature),
-            "Invalid owner signature");
+            "Commit: Invalid owner signature");
 
         // Verify validator's signature
         require(
@@ -108,25 +134,21 @@ contract FromBridge is Ownable, Initializable {
                 tokenOwner, tokenId,
                 commitment, requestTimestamp,
                 validatorSignature),
-            "Invalid validator signature");
+            "Commit: Invalid validator signature");
 
         // Check ownership's correctness
-        require(fromToken.ownerOf(tokenId) == tokenOwner, "The token's owner is incorrect");
-
-        // Permanently burn the token
-        fromToken.burn(tokenId);
-
-        // Emit event for owner (frontend) to retrieve commitment, timestamp and signature
-        emit Commit(tokenOwner, tokenId, commitment, requestTimestamp, validatorSignature);
+        require(fromToken.ownerOf(tokenId) == tokenOwner, "Commit: The token's owner is incorrect");
     }
 
     /**
      * @dev Wrapper of "verifyOwnerSignature" function in "Signature.sol" contract,
-     * for code readability purpose in "commitAndBurn" function.
+     * for code readability purpose in "_checkCommitRequirements" function.
      * @param tokenOwner The owner of the requested token.
      * @param tokenId The ID of the requested token.
      * @param signature The signature signed by the token's owner.
      * For message format, see "verifyOwnerSignature" function in "Signature.sol" contract.
+     * @return true if the signature is valid with respect to the owner's address
+     * and given information.
      */
     function _verifyOwnerSignature(
         address tokenOwner, uint256 tokenId,
@@ -141,13 +163,15 @@ contract FromBridge is Ownable, Initializable {
 
     /**
      * @dev Wrapper of "verifyValidatorSignature" function in "Signature.sol" contract,
-     * for code readability purpose in "commitAndBurn" function.
+     * for code readability purpose in "_checkCommitRequirements" function.
      * @param tokenOwner The owner of the requested token.
      * @param tokenId The ID of the requested token.
      * @param commitment The validator's commitment.
      * @param requestTimestamp The timestamp when the validator received request.
      * @param signature The signature signed by the validator.
      * For message format, see "verifyValidatorSignature" function in "Signature.sol" contract.
+     * @return true if the signature is valid with respect to the validator's address
+     * and given information.
      */
     function _verifyValidatorSignature(
         address tokenOwner, uint256 tokenId,
@@ -165,5 +189,14 @@ contract FromBridge is Ownable, Initializable {
             commitment, requestTimestamp,
             validator,
             signature);
+    }
+
+    /**
+     * @dev Process the token by burning it. Inheriting contracts could perform different actions
+     * by overriding this function. For example, if the bridging process allows the owner to
+     * get the token back, the processing action will be transfer the token to FromBridge.
+     */
+    function _processToken(uint256 tokenId) internal virtual {
+        fromToken.burn(tokenId);
     }
 }
