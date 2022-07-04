@@ -4,6 +4,10 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
+/**
+ * @title Signature
+ * @dev This library is used for signature verification specific to the bridge protocol.
+ */
 library Signature {
 
     /**
