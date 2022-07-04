@@ -28,16 +28,6 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
         uint256 timestamp;
     }
 
-    // struct ClaimDetail {
-    //     address claimer;
-    //     uint256 oldTokenId;
-    //     string  tokenUri;
-    //     uint256 requestTimestamp;
-    //     uint256 waitingDurationForOldTokenToBeBurned;
-    //     uint256 timestamp;
-    //     uint256 waitingDurationToAcquireByClaim;
-    // }
-
     /**
      * - fromToken: Address of the ERC721 contract that tokens will be convert from.
      *
@@ -54,20 +44,17 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
      * and provides user signature to obtain the new token on this chain.
      *
      * - globalWaitingDurationForOldTokenToBeBurned: The duration the token owner needs to wait
-     * in order to acquire or claim, starting from request's timestamp determined by the validator.
-     * This is to ensure that the "commitAndBurn" transaction on the old chain is finalized.
-     *
-     * - globalWaitingDurationToAcquireByClaim: The duration the token owner needs to wait in
-     * order to acquire by claim, starting from claim's timestamp determined by FromBridge. This is
-     * to give the validator time to deny claim.
+     * in order to acquire, starting from request's timestamp determined by the validator.
+     * This is to ensure that the "commit" transaction on the old chain is finalized.
      */
-    address public fromToken;
-    address public fromBridge;
-    ToNFT   public toToken;
-    address public toBridge;
-    address public validator;
-    uint256 public globalWaitingDurationForOldTokenToBeBurned;
-    // uint256 public globalWaitingDurationToAcquireByClaim;
+    address public  fromToken;
+    address public  fromBridge;
+    ToNFT   public  toToken;
+    address public  toBridge;
+    address public  validator;
+    uint256 public  globalWaitingDurationForOldTokenToBeBurned;
+
+    bool    internal _initialized = false;
 
     /**
      * Mapping from validator's commitment to acquirement.
@@ -75,19 +62,9 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
 
      * Even if there were multiple tokens with same token ID requested to be bridged,
      * the commitment would be different each time (with high probability). Therefore commitment
-     * could be used as an identity for every requests, acquirements, claims, and denials.
+     * could be used as an identity for every requests and acquirements.
      */
     mapping(bytes32 => AcquirementDetail) private _acquirements;
-
-    // /**
-    //  * Mapping from validator's commitment to claim.
-    //  */
-    // mapping(bytes32 => ClaimDetail) private _claims;
-
-    // /**
-    //  * Mapping from validator's commitment to denial.
-    //  */
-    // mapping(bytes32 => bool) private _denials;
 
     event Acquire(
         address indexed acquirer,
@@ -99,43 +76,10 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
         uint256         waitingDurationForOldTokenToBeBurned,
         uint256         acquirementTimestamp);
 
-    // event Claim(
-    //     address indexed claimer,
-    //     uint256 indexed oldTokenId,
-    //     string          tokenUri,
-    //     bytes32 indexed commitment,
-    //     uint256         requestTimestamp,
-    //     uint256         waitingDurationForOldTokenToBeBurned,
-    //     uint256         claimTimestamp,
-    //     uint256         waitingDurationToAcquireByClaim);
-
-    // event AcquireByClaim(
-    //     address indexed acquirer,
-    //     uint256 indexed oldTokenId,
-    //     uint256         newTokenId,
-    //     string          tokenUri,
-    //     bytes32 indexed commitment,
-    //     uint256         requestTimestamp,
-    //     uint256         waitingDurationForOldTokenToBeBurned,
-    //     uint256         claimTimestamp,
-    //     uint256         waitingDurationToAcquireByClaim,
-    //     uint256         acquirementTimestamp);
-
-    // event Deny(
-    //     address indexed claimer,
-    //     uint256 indexed oldTokenId,
-    //     string          tokenUri,
-    //     bytes32 indexed commitment,
-    //     uint256         requestTimestamp,
-    //     uint256         waitingDurationForOldTokenToBeBurned,
-    //     uint256         claimTimestamp,
-    //     uint256         denialTimestamp,
-    //     uint256         waitingDurationToAcquireByClaim);
-
-    // modifier onlyValidator(string memory errorMessage) {
-    //     require(msg.sender == validator, errorMessage);
-    //     _;
-    // }
+    modifier onlyInitialized() {
+        require(_initialized, "ToBridge: Contract is not initialized");
+        _;
+    }
 
     /**
      * @dev To be called immediately after contract deployment. Replaces constructor.
@@ -146,16 +90,16 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
         address toToken_,
         address validator_,
         uint256 globalWaitingDurationForOldTokenToBeBurned_
-        // uint256 globalWaitingDurationToAcquireByClaim_
     ) public virtual onlyOwner initializer {
         fromToken = fromToken_;
         fromBridge = fromBridge_;
         validator = validator_;
         globalWaitingDurationForOldTokenToBeBurned = globalWaitingDurationForOldTokenToBeBurned_;
-        // globalWaitingDurationToAcquireByClaim = globalWaitingDurationToAcquireByClaim_;
 
         toToken = ToNFT(toToken_);
         toBridge = address(this);
+
+        _initialized = true;
     }
 
     /**
@@ -171,13 +115,6 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
     function setGlobalWaitingDurationForOldTokenToBeBurned(uint256 newGlobalWaitingDurationForOldTokenToBeBurned) external onlyOwner {
         globalWaitingDurationForOldTokenToBeBurned = newGlobalWaitingDurationForOldTokenToBeBurned;
     }
-
-    // /**
-    //  * @dev Change globalWaitingDurationToAcquireByClaim
-    //  */
-    // function setGlobalWaitingDurationToAcquireByClaim(uint256 newGlobalWaitingDurationToAcquireByClaim) external onlyOwner {
-    //     globalWaitingDurationToAcquireByClaim = newGlobalWaitingDurationToAcquireByClaim;
-    // }
 
     /**
      * @dev This function is called by users to get new token corresponding to the old one.
@@ -197,7 +134,7 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
         bytes32 commitment, bytes calldata secret,
         uint256 requestTimestamp,
         bytes memory validatorSignature
-    ) external nonReentrant {
+    ) external onlyInitialized nonReentrant {
         // Check all requirements to acquire
         _checkAcquireRequiments(
             tokenOwner, tokenId,
@@ -344,7 +281,7 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
 
     /**
      * @dev Wrapper of "verifyValidatorSignature" function in "Signature.sol" contract,
-     * for code readability purpose in "acquire" and "claim" function.
+     * for code readability purpose in "acquire" function.
      * @param tokenOwner The owner of the requested token.
      * @param tokenId The ID of the requested token.
      * @param tokenUri The URI of the requested token.

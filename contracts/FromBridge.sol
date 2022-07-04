@@ -32,11 +32,13 @@ contract FromBridge is Ownable, Initializable {
      * - validator: (Blockchain) Address of the validator that provides owner signature
      * and "secret" to obtain the new token on the other chain.
      */
-    ERC721Burnable  public fromToken;
-    address         public fromBridge;
-    address         public toToken;
-    address         public toBridge;
-    address         public validator;
+    ERC721Burnable  public      fromToken;
+    address         public      fromBridge;
+    address         public      toToken;
+    address         public      toBridge;
+    address         public      validator;
+
+    bool            internal    _initialized = false;
 
     event Commit(
         address indexed tokenOwner,
@@ -44,6 +46,11 @@ contract FromBridge is Ownable, Initializable {
         bytes32         commitment,
         uint256         requestTimestamp,
         bytes           validatorSignature);
+
+    modifier onlyInitialized() {
+        require(_initialized, "ToBridge: Contract is not initialized");
+        _;
+    }
 
     modifier onlyValidator(string memory errorMessage) {
         require(msg.sender == validator, errorMessage);
@@ -65,6 +72,8 @@ contract FromBridge is Ownable, Initializable {
 
         fromToken = ERC721Burnable(fromToken_);
         fromBridge = address(this);
+        
+        _initialized = true;
     }
 
     /**
@@ -96,7 +105,7 @@ contract FromBridge is Ownable, Initializable {
         address tokenOwner, uint256 tokenId,
         bytes32 commitment, uint256 requestTimestamp,
         bytes memory ownerSignature, bytes memory validatorSignature
-    ) external onlyValidator("Commit: Only validator is allowed to commit") {
+    ) external onlyInitialized onlyValidator("Commit: Only validator is allowed to commit") {
         // Check all requirements to commit
         _checkCommitRequirements(
             tokenOwner, tokenId,
