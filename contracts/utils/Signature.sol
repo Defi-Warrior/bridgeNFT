@@ -24,6 +24,8 @@ library Signature {
      * MESSAGE FORMAT:
      *      "RequestTokenBurn" || fromToken || fromBridge || toToken || toBridge ||
      *      tokenOwner || tokenId
+     * @return true if the signature is valid with respect to the owner's address
+     * and given information.
      */
     function verifyOwnerSignature(
         address fromToken, address fromBridge,
@@ -61,6 +63,8 @@ library Signature {
      * MESSAGE FORMAT:
      *      "Commit" || fromToken || fromBridge || toToken || toBridge ||
      *      tokenOwner || tokenId || tokenUri || commitment || requestTimestamp
+     * @return true if the signature is valid with respect to the validator's address
+     * and given information.
      */
     function verifyValidatorSignature(
         address fromToken, address fromBridge,
