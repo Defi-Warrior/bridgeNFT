@@ -3,10 +3,11 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./ToNFT.sol";
+import "./utils/Commitment.sol";
 import "./utils/Signature.sol";
 
 /**
@@ -15,7 +16,7 @@ import "./utils/Signature.sol";
  * user's ERC721 NFTs from another chain to this chain. Both chains are Ethereum-based.
  * The second part is essentially minting new NFTs corresponding to the old ones for users.
  */
-contract ToBridge is Ownable, Initializable, Pausable, ReentrancyGuard {
+contract ToBridge is Ownable, Initializable, ReentrancyGuard {
 
     struct AcquirementDetail {
         address acquirer;
@@ -27,15 +28,15 @@ contract ToBridge is Ownable, Initializable, Pausable, ReentrancyGuard {
         uint256 timestamp;
     }
 
-    struct ClaimDetail {
-        address claimer;
-        uint256 oldTokenId;
-        string  tokenUri;
-        uint256 requestTimestamp;
-        uint256 waitingDurationForOldTokenToBeBurned;
-        uint256 timestamp;
-        uint256 waitingDurationToAcquireByClaim;
-    }
+    // struct ClaimDetail {
+    //     address claimer;
+    //     uint256 oldTokenId;
+    //     string  tokenUri;
+    //     uint256 requestTimestamp;
+    //     uint256 waitingDurationForOldTokenToBeBurned;
+    //     uint256 timestamp;
+    //     uint256 waitingDurationToAcquireByClaim;
+    // }
 
     /**
      * - fromToken: Address of the ERC721 contract that tokens will be convert from.
@@ -66,7 +67,7 @@ contract ToBridge is Ownable, Initializable, Pausable, ReentrancyGuard {
     address public toBridge;
     address public validator;
     uint256 public globalWaitingDurationForOldTokenToBeBurned;
-    uint256 public globalWaitingDurationToAcquireByClaim;
+    // uint256 public globalWaitingDurationToAcquireByClaim;
 
     /**
      * Mapping from validator's commitment to acquirement.
@@ -78,15 +79,15 @@ contract ToBridge is Ownable, Initializable, Pausable, ReentrancyGuard {
      */
     mapping(bytes32 => AcquirementDetail) private _acquirements;
 
-    /**
-     * Mapping from validator's commitment to claim.
-     */
-    mapping(bytes32 => ClaimDetail) private _claims;
+    // /**
+    //  * Mapping from validator's commitment to claim.
+    //  */
+    // mapping(bytes32 => ClaimDetail) private _claims;
 
-    /**
-     * Mapping from validator's commitment to denial.
-     */
-    mapping(bytes32 => bool) private _denials;
+    // /**
+    //  * Mapping from validator's commitment to denial.
+    //  */
+    // mapping(bytes32 => bool) private _denials;
 
     event Acquire(
         address indexed acquirer,
@@ -98,43 +99,43 @@ contract ToBridge is Ownable, Initializable, Pausable, ReentrancyGuard {
         uint256         waitingDurationForOldTokenToBeBurned,
         uint256         acquirementTimestamp);
 
-    event Claim(
-        address indexed claimer,
-        uint256 indexed oldTokenId,
-        string          tokenUri,
-        bytes32 indexed commitment,
-        uint256         requestTimestamp,
-        uint256         waitingDurationForOldTokenToBeBurned,
-        uint256         claimTimestamp,
-        uint256         waitingDurationToAcquireByClaim);
+    // event Claim(
+    //     address indexed claimer,
+    //     uint256 indexed oldTokenId,
+    //     string          tokenUri,
+    //     bytes32 indexed commitment,
+    //     uint256         requestTimestamp,
+    //     uint256         waitingDurationForOldTokenToBeBurned,
+    //     uint256         claimTimestamp,
+    //     uint256         waitingDurationToAcquireByClaim);
 
-    event AcquireByClaim(
-        address indexed acquirer,
-        uint256 indexed oldTokenId,
-        uint256         newTokenId,
-        string          tokenUri,
-        bytes32 indexed commitment,
-        uint256         requestTimestamp,
-        uint256         waitingDurationForOldTokenToBeBurned,
-        uint256         claimTimestamp,
-        uint256         waitingDurationToAcquireByClaim,
-        uint256         acquirementTimestamp);
+    // event AcquireByClaim(
+    //     address indexed acquirer,
+    //     uint256 indexed oldTokenId,
+    //     uint256         newTokenId,
+    //     string          tokenUri,
+    //     bytes32 indexed commitment,
+    //     uint256         requestTimestamp,
+    //     uint256         waitingDurationForOldTokenToBeBurned,
+    //     uint256         claimTimestamp,
+    //     uint256         waitingDurationToAcquireByClaim,
+    //     uint256         acquirementTimestamp);
 
-    event Deny(
-        address indexed claimer,
-        uint256 indexed oldTokenId,
-        string          tokenUri,
-        bytes32 indexed commitment,
-        uint256         requestTimestamp,
-        uint256         waitingDurationForOldTokenToBeBurned,
-        uint256         claimTimestamp,
-        uint256         denialTimestamp,
-        uint256         waitingDurationToAcquireByClaim);
+    // event Deny(
+    //     address indexed claimer,
+    //     uint256 indexed oldTokenId,
+    //     string          tokenUri,
+    //     bytes32 indexed commitment,
+    //     uint256         requestTimestamp,
+    //     uint256         waitingDurationForOldTokenToBeBurned,
+    //     uint256         claimTimestamp,
+    //     uint256         denialTimestamp,
+    //     uint256         waitingDurationToAcquireByClaim);
 
-    modifier onlyValidator(string memory errorMessage) {
-        require(msg.sender == validator, errorMessage);
-        _;
-    }
+    // modifier onlyValidator(string memory errorMessage) {
+    //     require(msg.sender == validator, errorMessage);
+    //     _;
+    // }
 
     /**
      * @dev To be called immediately after contract deployment. Replaces constructor.
@@ -144,14 +145,14 @@ contract ToBridge is Ownable, Initializable, Pausable, ReentrancyGuard {
         address fromBridge_,
         address toToken_,
         address validator_,
-        uint256 globalWaitingDurationForOldTokenToBeBurned_,
-        uint256 globalWaitingDurationToAcquireByClaim_
+        uint256 globalWaitingDurationForOldTokenToBeBurned_
+        // uint256 globalWaitingDurationToAcquireByClaim_
     ) public virtual onlyOwner initializer {
         fromToken = fromToken_;
         fromBridge = fromBridge_;
         validator = validator_;
         globalWaitingDurationForOldTokenToBeBurned = globalWaitingDurationForOldTokenToBeBurned_;
-        globalWaitingDurationToAcquireByClaim = globalWaitingDurationToAcquireByClaim_;
+        // globalWaitingDurationToAcquireByClaim = globalWaitingDurationToAcquireByClaim_;
 
         toToken = ToNFT(toToken_);
         toBridge = address(this);
@@ -171,27 +172,78 @@ contract ToBridge is Ownable, Initializable, Pausable, ReentrancyGuard {
         globalWaitingDurationForOldTokenToBeBurned = newGlobalWaitingDurationForOldTokenToBeBurned;
     }
 
-    /**
-     * @dev Change globalWaitingDurationToAcquireByClaim
-     */
-    function setGlobalWaitingDurationToAcquireByClaim(uint256 newGlobalWaitingDurationToAcquireByClaim) external onlyOwner {
-        globalWaitingDurationToAcquireByClaim = newGlobalWaitingDurationToAcquireByClaim;
-    }
-
     // /**
-    //  * @dev User calls this function to get new token corresponding to the old one.
-    //  * @param requestId Consists of token owner's address, token's ID and nonce.
-    //  * @param requestTimestamp The request timestamp stored in FromBridge.
-    //  * @param signature This signature was signed by the validator to confirm the request
-    //  * after seeing the "Request" event emitted from FromBridge.
+    //  * @dev Change globalWaitingDurationToAcquireByClaim
     //  */
+    // function setGlobalWaitingDurationToAcquireByClaim(uint256 newGlobalWaitingDurationToAcquireByClaim) external onlyOwner {
+    //     globalWaitingDurationToAcquireByClaim = newGlobalWaitingDurationToAcquireByClaim;
+    // }
+
+    /**
+     * @dev This function is called by users to get new token corresponding to the old one.
+     * @param tokenOwner The owner of the old token.
+     * @param tokenId The ID of the old token.
+     * @param tokenUri The URI of the old token.
+     * @param commitment The validator's commitment.
+     * @param secret The validator's revealed value.
+     * @param requestTimestamp The timestamp when the validator received request.
+     * @param validatorSignature This signature was signed by the validator after verifying
+     * that the requester is the token's owner and FromBridge is approved on this token.
+     * For message format, see "verifyValidatorSignature" function in "Signature.sol" contract.
+     */
     function acquire(
         address tokenOwner, uint256 tokenId,
         string memory tokenUri,
         bytes32 commitment, bytes calldata secret,
         uint256 requestTimestamp,
         bytes memory validatorSignature
-    ) external whenNotPaused nonReentrant {
+    ) external nonReentrant {
+        // Check all requirements to acquire
+        _checkAcquireRequiments(
+            tokenOwner, tokenId,
+            tokenUri,
+            commitment, secret,
+            requestTimestamp,
+            validatorSignature);
+
+        // Mint a new token corresponding to the old one
+        uint256 newTokenId = _mint(tokenOwner, tokenUri);
+
+        // Rename variables for readability
+        address acquirer = tokenOwner;
+        uint256 oldTokenId = tokenId;
+        uint256 waitingDurationForOldTokenToBeBurned = globalWaitingDurationForOldTokenToBeBurned;
+        uint256 acquirementTimestamp = block.timestamp;
+
+        // Save acquirement
+        _saveAcquirement(
+            acquirer,
+            oldTokenId, newTokenId,
+            tokenUri, commitment,
+            requestTimestamp,
+            waitingDurationForOldTokenToBeBurned,
+            acquirementTimestamp);
+
+        // Emit event
+        emit Acquire(
+            acquirer,
+            oldTokenId, newTokenId,
+            tokenUri, commitment,
+            requestTimestamp,
+            waitingDurationForOldTokenToBeBurned,
+            acquirementTimestamp);
+    }
+
+    /**
+     * @dev Check all requirements to acquire new token. Currently
+     */
+    function _checkAcquireRequiments(
+        address tokenOwner, uint256 tokenId,
+        string memory tokenUri,
+        bytes32 commitment, bytes calldata secret,
+        uint256 requestTimestamp,
+        bytes memory validatorSignature
+    ) internal view virtual {
         // Verify validator's signature
         require(
             _verifyValidatorSignature(
@@ -199,125 +251,96 @@ contract ToBridge is Ownable, Initializable, Pausable, ReentrancyGuard {
                 tokenUri,
                 commitment, requestTimestamp,
                 validatorSignature),
-            "Invalid validator signature");
+            "Acquire: Invalid validator signature");
+
+        // Verify validator's revealed value
+        require(Commitment.verify(commitment, secret), "Acquire: Commitment and revealed value do not match");
 
         // The token must not have been acquired
-        require(!_isAcquired(tokenId), "Token has been acquired");
+        require(!_isAcquired(commitment), "Acquire: Token has been acquired");
 
         // By policy, token owners must acquire by themselves
-        require(msg.sender == tokenOwner, "Token can only be acquired by its owner");
+        require(msg.sender == tokenOwner, "Acquire: Token can only be acquired by its owner");
 
         // Revert if user did not wait enough time
-        require(block.timestamp > requestTimestamp + globalWaitingDurationForOldTokenToBeBurned, "Elapsed time from request is not enough");
+        require(block.timestamp > requestTimestamp + globalWaitingDurationForOldTokenToBeBurned,
+            "Acquire: Elapsed time from request is not enough");
+    }
 
-        // Revert if request had been rejected by validator
-        require(!_isRejected(), "This request for token acquirement has been rejected by the validator");
+    /**
+     * @dev Mint new token.
+     * @param to The owner of the newly minted token.
+     * @param tokenUri The URI of the newly minted token.
+     * @return The ID of the newly minted token.
+     */
+    function _mint(address to, string memory tokenUri) internal virtual returns (uint256) {
+        uint256 tokenId = _findAvailableTokenId(toToken);
 
-        // Save acquirement
-        uint256 waitingDurationForOldTokenToBeBurned = globalWaitingDurationForOldTokenToBeBurned;
-        uint256 acquirementTimestamp = block.timestamp;
-        _acquirements[tokenId] = AcquirementDetail(tokenOwner,
-                                                                requestTimestamp,
-                                                                waitingDurationForOldTokenToBeBurned,
-                                                                acquirementTimestamp);
+        toToken.mint(to, tokenId, tokenUri);
 
-        // Mint a new token corresponding to the old one
-        toToken.mint(tokenOwner, tokenId);
+        return tokenId;
+    }
 
-        // Emit event
-        emit Acquire(
-            tokenOwner,
-            tokenId,
-            nonce,
+    /**
+     * @dev Utility function to help find an ID that is currently available (not owned),
+     * in order to mint new token.
+     * @param token The ERC721 token in which the ID is looked up.
+     * @return An available token ID.
+     */
+    function _findAvailableTokenId(IERC721 token) internal view virtual returns (uint256) {
+        uint256 tokenId;
+        uint256 i = 0;
+        
+        while (true) {
+            // Generate somewhat hard-to-collide ID.
+            tokenId = uint256(keccak256( abi.encodePacked(address(token), block.timestamp, i) ));
+
+            // Check if an ID is available (not owned) or not.
+            // Because "ERC721._exists" is internal function, use "ERC721.ownerOf" instead.
+            // Determine an ID's availability based on whether or not "ownerOf" revert.
+            // If an ID is not owned by any non-zero addess, it will revert.
+            try token.ownerOf(tokenId) {
+                i++;
+            }
+            catch {
+                return tokenId;
+            }
+        }
+
+        // Warning suppressing purpose. Execution will never reach here (NEED TEST).
+        return 0;
+    }
+
+    /**
+     * @dev Save acquirement to contract's storage.
+     */
+    function _saveAcquirement(
+        address acquirer,
+        uint256 oldTokenId, uint256 newTokenId,
+        string memory tokenUri, bytes32 commitment,
+        uint256 requestTimestamp,
+        uint256 waitingDurationForOldTokenToBeBurned,
+        uint256 acquirementTimestamp
+    ) internal {        
+        _acquirements[commitment] = AcquirementDetail(
+            acquirer,
+            oldTokenId, newTokenId,
+            tokenUri,
             requestTimestamp,
             waitingDurationForOldTokenToBeBurned,
             acquirementTimestamp);
     }
 
-    // /**
-    //  * @dev In case the validator noticed that the confirmation transaction sent to fromBridge had not
-    //  * been finalized (i.e not included in some block that is, for example, 6 blocks backward
-    //  * from the newest block) after a specific period of time (e.g 10 minutes), the validator would
-    //  * call this function to reject user to acquire token by using that unconfirmed request.
-    //  * 
-    //  * It should be noted that the request sent to this function must be the latest request
-    //  * corresponding to that token processed by fromBridge. Because technically what this function
-    //  * does is just increasing the latest nonce by 1, thus making the nonces unsynchronized.
-    //  *
-    //  * @param requestId Consists of token owner's address, token's ID and nonce.
-    //  */
-    // function rejectAcquirementByRequest(RequestId calldata requestId)
-    //         external onlyValidator("Only validator is allowed to reject request") {
-    //     // The token must not have been acquired
-    //     require(!_isAcquired(requestId.tokenId), "Token has been acquired");
-
-    //     // Make this nonce unsynchronized (i.e. unequal) with the nonce stored in FromBridge,
-    //     // so that user could not acquire token using the nonce in this request.
-    //     // Note that, by increment by 1, this nonce will auto resynchronized with the other after user
-    //     // claims his/her token back at FromBridge.
-    //     _latestNonces[requestId.tokenOwner][requestId.tokenId]++;
-
-    //     // Emit event
-    //     uint256 rejectTimestamp = block.timestamp;
-    //     emit Reject(requestId.tokenOwner, requestId.tokenId, requestId.nonce, rejectTimestamp);
-    // }
-
-    // /**
-    //  * @dev The validator could reallow acquirement by a request that was previously rejected 
-    //  * @param requestId Consists of token owner's address, token's ID and nonce.
-    //  * @param requestTimestamp The request's timestamp
-    //  */
-    // function forceMintAfterReject(RequestId calldata requestId, uint256 requestTimestamp)
-    //         external onlyValidator("Only validator is allowed to force mint") {
-    //     // The token must not have been acquired
-    //     require(!_isAcquired(requestId.tokenId), "Token has been acquired");
-
-    //     // Save acquirement
-    //     // Set "waitingDurationToAcquire" to 0 instead of "globalWaitingDurationToAcquire"
-    //     // to distinguish force minting from normal acquirement.
-    //     uint256 waitingDurationToAcquire = 0;
-    //     uint256 forceMintTimestamp = block.timestamp;
-    //     _acquirements[requestId.tokenId] = AcquirementDetail(requestId.tokenOwner,
-    //                                                             requestTimestamp,
-    //                                                             waitingDurationToAcquire,
-    //                                                             forceMintTimestamp);
-
-    //     // Resynchronize nonce. The nonce value after subtract acts as the nonce
-    //     // used to acquire
-    //     _latestNonces[requestId.tokenOwner][requestId.tokenId]--;
-
-    //     // Mint a new token corresponding to the old one
-    //     toToken.mint(requestId.tokenOwner, requestId.tokenId);
-
-    //     // Emit event
-    //     emit ForceMint(
-    //         requestId.tokenOwner,
-    //         requestId.tokenId,
-    //         requestId.nonce,
-    //         forceMintTimestamp);
-    // }
-
-    // /**
-    //  * @dev The token had been acquired if and only if the "_acquirements" mapping would
-    //  * have stored non-default values in the AcquirementDetail struct. The default value
-    //  * of every storage slot is 0.
-    //  * @param tokenId The token's ID on old chain.
-    //  * @return true if the token has already been acquired.
-    //  */
-    // function _isAcquired(uint256 tokenId) internal view returns (bool) {
-    //     return _acquirements[tokenId].timestamp != 0;
-    // }
-
-    // /**
-    //  * @dev The request has been rejected by the validator if and only if the nonce coming from the
-    //  * request (which originated from FromBridge) and the nonce stored in "_latestNonces"
-    //  * are unequal.
-    //  * @param requestId Consists of token owner's address, token's ID and nonce.
-    //  * @return true if the request has been rejected by the validator.
-    //  */
-    // function _isRejected(RequestId calldata requestId) internal view returns (bool) {
-    //     return requestId.nonce != _latestNonces[requestId.tokenOwner][requestId.tokenId];
-    // }
+    /**
+     * @dev The token had been acquired if and only if the "_acquirements" mapping would
+     * have stored non-default values in the AcquirementDetail struct. The default value
+     * of every storage slot is 0.
+     * @param commitment The validator's commitment. It uniquely identifies every acquirements.
+     * @return true if the token has already been acquired.
+     */
+    function _isAcquired(bytes32 commitment) internal view returns (bool) {
+        return _acquirements[commitment].timestamp != 0;
+    }
 
     /**
      * @dev Wrapper of "verifyValidatorSignature" function in "Signature.sol" contract,
@@ -329,6 +352,8 @@ contract ToBridge is Ownable, Initializable, Pausable, ReentrancyGuard {
      * @param requestTimestamp The timestamp when the validator received request.
      * @param signature The signature signed by the validator.
      * For message format, see "verifyValidatorSignature" function in "Signature.sol" contract.
+     * @return true if the signature is valid with respect to the validator's address
+     * and given information.
      */
     function _verifyValidatorSignature(
         address tokenOwner, uint256 tokenId,
@@ -337,8 +362,8 @@ contract ToBridge is Ownable, Initializable, Pausable, ReentrancyGuard {
         bytes memory signature
     ) internal view returns (bool) {
         return Signature.verifyValidatorSignature(
-            address(fromToken), fromBridge,
-            toToken, toBridge,
+            fromToken, fromBridge,
+            address(toToken), toBridge,
             tokenOwner, tokenId,
             tokenUri,
             commitment, requestTimestamp,
