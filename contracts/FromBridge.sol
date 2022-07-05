@@ -77,7 +77,7 @@ contract FromBridge is Ownable, Initializable {
     }
 
     /**
-     * @dev Change validator
+     * @dev "validator" setter
      */
     function setValidator(address newValidator) external onlyOwner {
         validator = newValidator;
@@ -106,16 +106,16 @@ contract FromBridge is Ownable, Initializable {
         bytes32 commitment, uint256 requestTimestamp,
         bytes memory ownerSignature, bytes memory validatorSignature
     ) external onlyInitialized onlyValidator("Commit: Only validator is allowed to commit") {
-        // Check all requirements to commit
+        // Check all requirements to commit.
         _checkCommitRequirements(
             tokenOwner, tokenId,
             commitment, requestTimestamp,
             ownerSignature, validatorSignature);
 
-        // Process the token
+        // Process the token.
         _processToken(tokenId);
 
-        // Emit event for owner (frontend) to retrieve commitment, timestamp and signature
+        // Emit event for owner (frontend) to retrieve commitment, timestamp and signature.
         emit Commit(tokenOwner, tokenId, commitment, requestTimestamp, validatorSignature);
     }
 
@@ -124,20 +124,27 @@ contract FromBridge is Ownable, Initializable {
      * requirements, when overriding it should first call super._checkCommitRequirements(...)
      * then add its own requirements.
      * Parameters are the same as "commit" function.
+     *
+     * Currently the checks are:
+     * - Owner's signature.
+     * - Validator's signature.
+     * - "tokenId"'s owner is "tokenOwner".
+     * - FromBridge is approved on "tokenId".
+     * - The request timestamp determined by the validator is in the past.
      */
     function _checkCommitRequirements(
         address tokenOwner, uint256 tokenId,
         bytes32 commitment, uint256 requestTimestamp,
         bytes memory ownerSignature, bytes memory validatorSignature
     ) internal view virtual {
-        // Verify owner's signature
+        // Verify owner's signature.
         require(
             _verifyOwnerSignature(
                 tokenOwner, tokenId,
                 ownerSignature),
             "Commit: Invalid owner signature");
 
-        // Verify validator's signature
+        // Verify validator's signature.
         require(
             _verifyValidatorSignature(
                 tokenOwner, tokenId,
@@ -145,16 +152,17 @@ contract FromBridge is Ownable, Initializable {
                 validatorSignature),
             "Commit: Invalid validator signature");
 
-        // Check ownership
+        // Check ownership.
         require(fromToken.ownerOf(tokenId) == tokenOwner,
             "Commit: The token's owner is incorrect");
 
-        // Check approval
+        // Check approval.
         require(fromToken.getApproved(tokenId) == fromBridge,
             "Commit: FromBridge is not approved on token ID");
 
-        // Check request timestamp's validity (i.e. occured in the past)
-        require(block.timestamp > requestTimestamp, "Commit: Request timestamp must be in the past");
+        // Check request timestamp's validity (i.e. occured in the past).
+        require(block.timestamp > requestTimestamp,
+            "Commit: Request timestamp must be in the past");
     }
 
     /**

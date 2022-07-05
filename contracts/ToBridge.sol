@@ -24,7 +24,7 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
         uint256 newTokenId;
         string  tokenUri;
         uint256 requestTimestamp;
-        uint256 waitingDurationForOldTokenToBeBurned;
+        uint256 waitingDurationForOldTokenToBeProcessed;
         uint256 timestamp;
     }
 
@@ -43,7 +43,7 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
      * - validator: (Blockchain) Address of the validator that confirms request on the other chain
      * and provides user signature to obtain the new token on this chain.
      *
-     * - globalWaitingDurationForOldTokenToBeBurned: The duration the token owner needs to wait
+     * - globalWaitingDurationForOldTokenToBeProcessed: The duration the token owner needs to wait
      * in order to acquire, starting from request's timestamp determined by the validator.
      * This is to ensure that the "commit" transaction on the old chain is finalized.
      */
@@ -52,7 +52,7 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
     ToNFT   public  toToken;
     address public  toBridge;
     address public  validator;
-    uint256 public  globalWaitingDurationForOldTokenToBeBurned;
+    uint256 public  globalWaitingDurationForOldTokenToBeProcessed;
 
     bool    internal _initialized = false;
 
@@ -73,7 +73,7 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
         string          tokenUri,
         bytes32 indexed commitment,
         uint256         requestTimestamp,
-        uint256         waitingDurationForOldTokenToBeBurned,
+        uint256         waitingDurationForOldTokenToBeProcessed,
         uint256         acquirementTimestamp);
 
     modifier onlyInitialized() {
@@ -89,12 +89,12 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
         address fromBridge_,
         address toToken_,
         address validator_,
-        uint256 globalWaitingDurationForOldTokenToBeBurned_
+        uint256 globalWaitingDurationForOldTokenToBeProcessed_
     ) public virtual onlyOwner initializer {
         fromToken = fromToken_;
         fromBridge = fromBridge_;
         validator = validator_;
-        globalWaitingDurationForOldTokenToBeBurned = globalWaitingDurationForOldTokenToBeBurned_;
+        globalWaitingDurationForOldTokenToBeProcessed = globalWaitingDurationForOldTokenToBeProcessed_;
 
         toToken = ToNFT(toToken_);
         toBridge = address(this);
@@ -103,17 +103,17 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
     }
 
     /**
-     * @dev Change validator
+     * @dev "validator" setter
      */
     function setValidator(address newValidator) external onlyOwner {
         validator = newValidator;
     }
 
     /**
-     * @dev Change globalWaitingDurationForOldTokenToBeBurned
+     * @dev "globalWaitingDurationForOldTokenToBeProcessed" setter
      */
-    function setGlobalWaitingDurationForOldTokenToBeBurned(uint256 newGlobalWaitingDurationForOldTokenToBeBurned) external onlyOwner {
-        globalWaitingDurationForOldTokenToBeBurned = newGlobalWaitingDurationForOldTokenToBeBurned;
+    function setGlobalWaitingDurationForOldTokenToBeProcessed(uint256 newGlobalWaitingDurationForOldTokenToBeProcessed) external onlyOwner {
+        globalWaitingDurationForOldTokenToBeProcessed = newGlobalWaitingDurationForOldTokenToBeProcessed;
     }
 
     /**
@@ -135,7 +135,7 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
         uint256 requestTimestamp,
         bytes memory validatorSignature
     ) external onlyInitialized nonReentrant {
-        // Check all requirements to acquire
+        // Check all requirements to acquire.
         _checkAcquireRequiments(
             tokenOwner, tokenId,
             tokenUri,
@@ -143,36 +143,46 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
             requestTimestamp,
             validatorSignature);
 
-        // Mint a new token corresponding to the old one
+        // Mint a new token corresponding to the old one.
         uint256 newTokenId = _mint(tokenOwner, tokenUri);
 
-        // Rename variables for readability
+        // Rename variables for readability.
         address acquirer = tokenOwner;
         uint256 oldTokenId = tokenId;
-        uint256 waitingDurationForOldTokenToBeBurned = globalWaitingDurationForOldTokenToBeBurned;
+        uint256 waitingDurationForOldTokenToBeProcessed = globalWaitingDurationForOldTokenToBeProcessed;
         uint256 acquirementTimestamp = block.timestamp;
 
-        // Save acquirement
+        // Save acquirement.
         _saveAcquirement(
             acquirer,
             oldTokenId, newTokenId,
             tokenUri, commitment,
             requestTimestamp,
-            waitingDurationForOldTokenToBeBurned,
+            waitingDurationForOldTokenToBeProcessed,
             acquirementTimestamp);
 
-        // Emit event
+        // Emit event.
         emit Acquire(
             acquirer,
             oldTokenId, newTokenId,
             tokenUri, commitment,
             requestTimestamp,
-            waitingDurationForOldTokenToBeBurned,
+            waitingDurationForOldTokenToBeProcessed,
             acquirementTimestamp);
     }
 
     /**
-     * @dev Check all requirements to acquire new token. Currently
+     * @dev Check all requirements to acquire new token. If an inheriting contract has more
+     * requirements, when overriding it should first call super._checkAcquireRequiments(...)
+     * then add its own requirements.
+     * Parameters are the same as "acquire" function.
+     *
+     * Currently the checks are:
+     * - Validator's signature.
+     * - Validator's commitment.
+     * - The new token has not yet been acquired.
+     * - The message sender is the token owner.
+     * - The commit transaction at FromBridge is finalized.
      */
     function _checkAcquireRequiments(
         address tokenOwner, uint256 tokenId,
@@ -181,7 +191,7 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
         uint256 requestTimestamp,
         bytes memory validatorSignature
     ) internal view virtual {
-        // Verify validator's signature
+        // Verify validator's signature.
         require(
             _verifyValidatorSignature(
                 tokenOwner, tokenId,
@@ -190,17 +200,17 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
                 validatorSignature),
             "Acquire: Invalid validator signature");
 
-        // Verify validator's revealed value
+        // Verify validator's revealed value.
         require(Commitment.verify(commitment, secret), "Acquire: Commitment and revealed value do not match");
 
-        // The token must not have been acquired
+        // The new token must not have been acquired.
         require(!_isAcquired(commitment), "Acquire: Token has been acquired");
 
-        // By policy, token owners must acquire by themselves
+        // By policy, token owners must acquire by themselves.
         require(msg.sender == tokenOwner, "Acquire: Token can only be acquired by its owner");
 
-        // Revert if user did not wait enough time
-        require(block.timestamp > requestTimestamp + globalWaitingDurationForOldTokenToBeBurned,
+        // Revert if user did not wait enough time.
+        require(block.timestamp > requestTimestamp + globalWaitingDurationForOldTokenToBeProcessed,
             "Acquire: Elapsed time from request is not enough");
     }
 
@@ -256,7 +266,7 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
         uint256 oldTokenId, uint256 newTokenId,
         string memory tokenUri, bytes32 commitment,
         uint256 requestTimestamp,
-        uint256 waitingDurationForOldTokenToBeBurned,
+        uint256 waitingDurationForOldTokenToBeProcessed,
         uint256 acquirementTimestamp
     ) internal {        
         _acquirements[commitment] = AcquirementDetail(
@@ -264,7 +274,7 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
             oldTokenId, newTokenId,
             tokenUri,
             requestTimestamp,
-            waitingDurationForOldTokenToBeBurned,
+            waitingDurationForOldTokenToBeProcessed,
             acquirementTimestamp);
     }
 
