@@ -4,12 +4,10 @@ pragma solidity ^0.8.0;
 import "./ToBridge.sol";
 
 /**
- * @title ClaimableToBridge
- * @dev This contract carries out the second part of the process of bridging (converting)
- * user's ERC721 NFTs from another chain to this chain. Both chains are Ethereum-based.
- * The second part is essentially minting new NFTs corresponding to the old ones for users.
+ * @title ClaimToBridge
+ * @dev This contract adds claim functionality to base ToBridge.
  */
-contract ClaimableToBridge is ToBridge {
+contract ClaimToBridge is ToBridge {
 
     struct ClaimDetail {
         address claimer;
