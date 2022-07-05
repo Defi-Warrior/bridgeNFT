@@ -145,8 +145,16 @@ contract FromBridge is Ownable, Initializable {
                 validatorSignature),
             "Commit: Invalid validator signature");
 
-        // Check ownership's correctness
-        require(fromToken.ownerOf(tokenId) == tokenOwner, "Commit: The token's owner is incorrect");
+        // Check ownership
+        require(fromToken.ownerOf(tokenId) == tokenOwner,
+            "Commit: The token's owner is incorrect");
+
+        // Check approval
+        require(fromToken.getApproved(tokenId) == fromBridge,
+            "Commit: FromBridge is not approved on token ID");
+
+        // Check request timestamp's validity (i.e. occured in the past)
+        require(block.timestamp > requestTimestamp, "Commit: Request timestamp must be in the past");
     }
 
     /**
