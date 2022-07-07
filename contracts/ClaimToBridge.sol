@@ -25,7 +25,8 @@ contract ClaimToBridge is ToBridge {
      * - globalWaitingDurationToAcquireByClaim: The duration the token owner needs
      * to wait in order to acquire by claim, starting from claim's timestamp
      * determined by FromBridge. This is to give the validator time to deny claim.
-     * - minimumEscrow: Users must send an amount of ethers (an escrow) when claimming.
+     * - minimumEscrow: Users must send an amount of the chain's native currency
+     * (an escrow) when claimming.
      * So this variable specifies the minimum value of that amount.
      */
     uint256 public globalWaitingDurationToAcquireByClaim;
@@ -184,7 +185,7 @@ contract ClaimToBridge is ToBridge {
      * - The new token has not yet been acquired.
      * - The claim has not yet been denied by the validator.
      * - The message sender is the token owner.
-     * - The sended escrow ethers' amount is at least "minimumEscrow".
+     * - The sended escrow value is at least "minimumEscrow".
      * - The commit transaction at FromBridge is finalized.
      */
     function _checkClaimRequiments(
@@ -200,26 +201,26 @@ contract ClaimToBridge is ToBridge {
                 tokenUri,
                 commitment, requestTimestamp,
                 validatorSignature),
-            "Acquire: Invalid validator signature");
+            "Claim: Invalid validator signature");
 
         // The claim must not exist.
-        require(!_existsClaim(commitment), "AcquireByClaim: Claim already exists");
+        require(!_existsClaim(commitment), "Claim: Claim already exists");
 
         // The new token must not have been acquired.
-        require(!_isAcquired(commitment), "Acquire: Token has been acquired");
+        require(!_isAcquired(commitment), "Claim: Token has been acquired");
 
         // The claim must not have been denied by the validator.
-        require(!_isDenied(commitment), "Acquire: Token has been denied by the validator");
+        require(!_isDenied(commitment), "Claim: Token has been denied by the validator");
 
         // By policy, token owners must acquire by themselves.
-        require(msg.sender == tokenOwner, "Acquire: Token can only be acquired by its owner");
+        require(msg.sender == tokenOwner, "Claim: Token can only be acquired by its owner");
 
         // Revert if sended escrow is not enough.
-        require(msg.value >= minimumEscrow, "Sended ETH is not enough for escrow");
+        require(msg.value >= minimumEscrow, "Claim: Sended value is not enough for escrow");
 
         // Revert if user did not wait enough time.
         require(block.timestamp > requestTimestamp + globalWaitingDurationForOldTokenToBeProcessed,
-            "Acquire: Elapsed time from request is not enough");
+            "Claim: Elapsed time from request is not enough");
     }
 
     /**
@@ -353,7 +354,8 @@ contract ClaimToBridge is ToBridge {
      * @param commitment The validator's commitment. There is only one claim per commitment
      * and vice versa, so the commitment could act as the claim's identity.
      */
-    function deny(bytes32 commitment) external onlyInitialized nonReentrant {
+    function deny(bytes32 commitment)
+    external onlyInitialized onlyValidator("Deny: Only validator is allowed to deny") nonReentrant {
         // Retrieve claim.
         ClaimDetail storage claimDetail = _claims[commitment];
 
@@ -401,13 +403,13 @@ contract ClaimToBridge is ToBridge {
      */
     function _checkDenyRequiments(bytes32 commitment, ClaimDetail storage claimDetail) internal view virtual {
         // The claim must exist.
-        require(_existsClaim(commitment), "AcquireByClaim: Claim does not exist");
+        require(_existsClaim(commitment), "Deny: Claim does not exist");
 
         // The new token must not have been acquired.
-        require(!_isAcquired(commitment), "AcquireByClaim: Token has been acquired");
+        require(!_isAcquired(commitment), "Deny: Token has been acquired");
 
         // The claim must not have been denied by the validator.
-        require(!_isDenied(commitment), "AcquireByClaim: Token has been denied by the validator");
+        require(!_isDenied(commitment), "Deny: Token has been denied by the validator");
 
         // Warning supressing purpose.
         // The "claimDetail" variable is not used for now but still in parameters to cover the case
