@@ -19,11 +19,12 @@ library Signature {
      * @param toBridge Address (Ethereum format) of toBridge.
      * @param tokenOwner The owner of the requested token.
      * @param tokenId The ID of the requested token.
+     * @param requestNonce The request's nonce.
      * @param signature This signature is signed by the token's owner, and is the prove
      * that the owner indeed requested the token to be bridged.
      * MESSAGE FORMAT:
      *      "RequestTokenBurn" || fromToken || fromBridge || toToken || toBridge ||
-     *      tokenOwner || tokenId
+     *      tokenOwner || tokenId || requestNonce
      * @return true if the signature is valid with respect to the owner's address
      * and given information.
      */
@@ -31,13 +32,15 @@ library Signature {
         address fromToken, address fromBridge,
         address toToken, address toBridge,
         address tokenOwner, uint256 tokenId,
+        uint256 requestNonce,
         bytes memory signature
     ) internal view returns (bool) {
         // Craft signed message
         bytes memory message = abi.encodePacked("RequestTokenBurn",
             fromToken, fromBridge,
             toToken, toBridge,
-            tokenOwner, tokenId
+            tokenOwner, tokenId,
+            requestNonce
         );
 
         return _verifySignature(tokenOwner, message, signature);
