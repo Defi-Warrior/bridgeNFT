@@ -16,10 +16,8 @@ contract ToNFT is ERC721URIStorage, Ownable {
     function mint(address to, uint256 tokenId, string memory tokenUri) public {
         require(msg.sender == toBridge, "Not allowed");
 
-        // "to" is guaranteed to be EOA, so use "_mint" instead of "_safeMint" to save gas
-        _mint(to, tokenId);
+        _safeMint(to, tokenId);
 
-        // Set token's URI
         _setTokenURI(tokenId, tokenUri);
     }
 }
