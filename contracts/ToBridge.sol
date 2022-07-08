@@ -54,7 +54,11 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
     address public  validator;
     uint256 public  globalWaitingDurationForOldTokenToBeProcessed;
 
-    bool    internal _initialized = false;
+    /**
+     * Boolean flag to determine whether this contract has been initialized or not.
+     * "acquire" function is blocked if not initialized.
+     */
+    bool private _initialized = false;
 
     /**
      * Mapping from validator's commitment to acquirement.
@@ -83,6 +87,13 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
 
     /**
      * @dev To be called immediately after contract deployment. Replaces constructor.
+     *
+     * Guide for overriding and overloading this function:
+     * - MUST have "onlyOwner" and "initializer" modifier.
+     * - MUST NOT call super.initialize() (for overriding).
+     * - MUST initialize all state variables initialized by this function.
+     * - After that do whatever needed things for its state variables' initialization.
+     * - MUST call _finishInitialization() at the end of the function.
      */
     function initialize(
         address fromToken_,
@@ -99,6 +110,14 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
         toToken = ToNFT(toToken_);
         toBridge = address(this);
 
+        _finishInitialization();
+    }
+
+    /**
+     * @dev This function MUST be called in every "initialize" function, including
+     * overriding and overloading function, at the end of the function.
+     */
+    function _finishInitialization() internal onlyInitializing {
         _initialized = true;
     }
 
@@ -173,7 +192,7 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
 
     /**
      * @dev Check all requirements to acquire new token. If an inheriting contract has more
-     * requirements, when overriding it should first call super._checkAcquireRequiments(...)
+     * requirements, when overriding, it SHOULD first call super._checkAcquireRequiments(...)
      * then add its own requirements.
      * Parameters are the same as "acquire" function.
      *
