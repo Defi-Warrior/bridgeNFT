@@ -355,7 +355,7 @@ contract ClaimToBridge is ToBridge {
      * and vice versa, so the commitment could act as the claim's identity.
      */
     function deny(bytes32 commitment)
-    external onlyInitialized onlyValidator("Deny: Only validator is allowed to deny") nonReentrant {
+    external onlyInitialized onlyValidator("Deny: Only validator is allowed to deny") {
         // Retrieve claim.
         ClaimDetail storage claimDetail = _claims[commitment];
 
@@ -413,7 +413,7 @@ contract ClaimToBridge is ToBridge {
 
         // Warning supressing purpose.
         // The "claimDetail" variable is not used for now but still in parameters to cover the case
-        // there is any inheriting contract override this function and use the claim's data.
+        // there is any inheriting contract overrides this function and uses the claim's data.
         if (false) { claimDetail; }
     }
 
