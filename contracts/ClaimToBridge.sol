@@ -33,6 +33,12 @@ contract ClaimToBridge is ToBridge {
     uint256 public minimumEscrow;
 
     /**
+     * Boolean flag to determine whether the claim functionality has been opened or not.
+     * "claim", "acquireByClaim" and "deny" functions are blocked if not opened.
+     */
+    bool private _openedForClaim;
+
+    /**
      * Mapping from validator's commitment to claim.
      *
      * Even if there were multiple tokens with same token ID requested to be bridged,
@@ -75,6 +81,11 @@ contract ClaimToBridge is ToBridge {
         uint256         denialTimestamp,
         uint256         waitingDurationToAcquireByClaim);
 
+    modifier onlyOpenedForClaim() {
+        require(_openedForClaim, "ClaimToBridge: Claim functionality is not opened");
+        _;
+    }
+
     modifier onlyValidator(string memory errorMessage) {
         require(msg.sender == validator, errorMessage);
         _;
@@ -82,6 +93,17 @@ contract ClaimToBridge is ToBridge {
 
     /**
      * @dev To be called immediately after contract deployment. Replaces constructor.
+     * This function is an overloading function of the "initialize" function in base
+     * ToBridge contract. If the "initialize" function in ToBridge is called, this function
+     * will become uncallable (due to the same "initializer" modifier). In that case,
+     * the deployed contract will become a normal ToBridge contract (no claim functionality).
+     *
+     * Guide for overriding and overloading this function:
+     * - MUST have "onlyOwner" and "initializer" modifier.
+     * - MUST NOT call super.initialize() (for overriding).
+     * - MUST initialize all state variables initialized by this function.
+     * - After that do whatever needed things for its state variables' initialization.
+     * - MUST call _openForClaim() and _finishInitialization() at the end of the function.
      */
     function initialize(
         address fromToken_,
@@ -91,7 +113,7 @@ contract ClaimToBridge is ToBridge {
         uint256 globalWaitingDurationForOldTokenToBeProcessed_,
         uint256 globalWaitingDurationToAcquireByClaim_,
         uint256 minimumEscrow_
-    ) public virtual onlyOwner reinitializer(2) {
+    ) public virtual onlyOwner initializer {
         fromToken = fromToken_;
         fromBridge = fromBridge_;
         validator = validator_;
@@ -102,7 +124,17 @@ contract ClaimToBridge is ToBridge {
         toToken = ToNFT(toToken_);
         toBridge = address(this);
 
-        _initialized = true;
+        _openForClaim();
+        _finishInitialization();
+    }
+
+    /**
+     * @dev This function MUST be called in every "initialize" function that opens
+     * claim functionality, including overriding and overloading function, at the end
+     * of the function.
+     */
+    function _openForClaim() internal onlyInitializing {
+        _openedForClaim = true;
     }
 
     /**
@@ -137,7 +169,7 @@ contract ClaimToBridge is ToBridge {
         string memory tokenUri,
         bytes32 commitment, uint256 requestTimestamp,
         bytes memory validatorSignature
-    ) external payable onlyInitialized nonReentrant {
+    ) external payable onlyInitialized onlyOpenedForClaim nonReentrant {
         // Check all requirements to claim.
         _checkClaimRequiments(
             tokenOwner, tokenId,
@@ -175,7 +207,7 @@ contract ClaimToBridge is ToBridge {
 
     /**
      * @dev Check all requirements to claim token. If an inheriting contract has more
-     * requirements, when overriding it should first call super._checkClaimRequiments(...)
+     * requirements, when overriding it SHOULD first call super._checkClaimRequiments(...)
      * then add its own requirements.
      * Parameters are the same as "claim" function.
      *
@@ -253,7 +285,8 @@ contract ClaimToBridge is ToBridge {
      * @param commitment The validator's commitment. There is only one claim per commitment
      * and vice versa, so the commitment could act as the claim's identity.
      */
-    function acquireByClaim(bytes32 commitment) external onlyInitialized nonReentrant {
+    function acquireByClaim(bytes32 commitment)
+    external onlyInitialized onlyOpenedForClaim nonReentrant {
         // Retrieve claim.
         ClaimDetail storage claimDetail = _claims[commitment];
 
@@ -299,7 +332,7 @@ contract ClaimToBridge is ToBridge {
 
     /**
      * @dev Check all requirements to acquire token by claim. If an inheriting contract has more
-     * requirements, when overriding it should first call super._checkAcquireByClaimRequiments(...)
+     * requirements, when overriding it SHOULD first call super._checkAcquireByClaimRequiments(...)
      * then add its own requirements.
      * @param commitment The validator's commitment.
      * @param claimDetail The detail of the claim retrieved using the given commitment.
@@ -355,7 +388,7 @@ contract ClaimToBridge is ToBridge {
      * and vice versa, so the commitment could act as the claim's identity.
      */
     function deny(bytes32 commitment)
-    external onlyInitialized onlyValidator("Deny: Only validator is allowed to deny") {
+    external onlyInitialized onlyOpenedForClaim onlyValidator("Deny: Only validator is allowed to deny") {
         // Retrieve claim.
         ClaimDetail storage claimDetail = _claims[commitment];
 
@@ -391,7 +424,7 @@ contract ClaimToBridge is ToBridge {
 
     /**
      * @dev Check all requirements to deny claim. If an inheriting contract has more
-     * requirements, when overriding it should first call super._checkDenyRequiments(...)
+     * requirements, when overriding it SHOULD first call super._checkDenyRequiments(...)
      * then add its own requirements.
      * @param commitment The validator's commitment.
      * @param claimDetail The detail of the claim retrieved using the given commitment.
