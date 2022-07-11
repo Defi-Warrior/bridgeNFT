@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "./interfaces/IToBridge.sol";
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./ToNFT.sol";
@@ -16,7 +17,7 @@ import "./utils/Signature.sol";
  * user's ERC721 NFTs from another chain to this chain. Both chains are Ethereum-based.
  * The second part is essentially minting new NFTs corresponding to the old ones for users.
  */
-contract ToBridge is Ownable, Initializable, ReentrancyGuard {
+contract ToBridge is IToBridge, Ownable, Initializable, ReentrancyGuard {
 
     struct AcquirementDetail {
         address acquirer;
@@ -167,7 +168,7 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
         bytes32 commitment, bytes calldata secret,
         uint256 requestTimestamp,
         bytes memory validatorSignature
-    ) external onlyInitialized("ToBridge") nonReentrant {
+    ) external override onlyInitialized("ToBridge") nonReentrant {
         // Check all requirements to acquire.
         _checkAcquireRequiments(
             tokenOwner, tokenId,

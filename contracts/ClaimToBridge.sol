@@ -2,12 +2,13 @@
 pragma solidity ^0.8.0;
 
 import "./ToBridge.sol";
+import "./interfaces/IClaim.sol";
 
 /**
  * @title ClaimToBridge
  * @dev This contract adds claim functionality to parent ToBridge contract.
  */
-contract ClaimToBridge is ToBridge {
+contract ClaimToBridge is ToBridge, IClaim {
 
     struct ClaimDetail {
         address claimer;
@@ -181,7 +182,7 @@ contract ClaimToBridge is ToBridge {
         string memory tokenUri,
         bytes32 commitment, uint256 requestTimestamp,
         bytes memory validatorSignature
-    ) external payable onlyInitialized("ClaimToBridge") nonReentrant {
+    ) external override payable onlyInitialized("ClaimToBridge") nonReentrant {
         // Check all requirements to claim.
         _checkClaimRequiments(
             tokenOwner, tokenId,
@@ -298,7 +299,7 @@ contract ClaimToBridge is ToBridge {
      * and vice versa, so the commitment could act as the claim's identity.
      */
     function acquireByClaim(bytes32 commitment)
-    external onlyInitialized("ClaimToBridge") nonReentrant {
+    external override onlyInitialized("ClaimToBridge") nonReentrant {
         // Retrieve claim.
         ClaimDetail storage claimDetail = _claims[commitment];
 
@@ -400,7 +401,7 @@ contract ClaimToBridge is ToBridge {
      * and vice versa, so the commitment could act as the claim's identity.
      */
     function deny(bytes32 commitment)
-    external onlyInitialized("ClaimToBridge") onlyValidator("Deny: Only validator is allowed to deny") {
+    external override onlyInitialized("ClaimToBridge") onlyValidator("Deny: Only validator is allowed to deny") {
         // Retrieve claim.
         ClaimDetail storage claimDetail = _claims[commitment];
 

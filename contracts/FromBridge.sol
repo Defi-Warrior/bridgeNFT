@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import "./interfaces/IFromBridge.sol";
 
 import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
@@ -16,7 +17,7 @@ import "./utils/Signature.sol";
  * The processing action is either permanent burning or holding custody of the token,
  * depending on implementation.
  */
-contract FromBridge is Ownable, Initializable {     
+contract FromBridge is IFromBridge, Ownable, Initializable {     
 
     /**
      * - fromToken: Address of the ERC721 contract that tokens will be convert from.
@@ -126,7 +127,7 @@ contract FromBridge is Ownable, Initializable {
     }
 
     /**
-     * @dev There are 2 cases that this function is called.
+     * @dev There are two cases that this function is called.
      * 1. Users call before requesting the validator for token bridging.
      * Because the validator will not accept a request without the right nonce.
      * Users could query only the nonces of their currently owned tokens.
@@ -135,7 +136,7 @@ contract FromBridge is Ownable, Initializable {
      * @param tokenId The ID of the requested token.
      * @return nonce The current request nonce associated with that owner and token ID.
      */
-    function getRequestNonce(uint256 tokenId) external view returns (uint256) {
+    function getRequestNonce(uint256 tokenId) external view override returns (uint256) {
         address tokenOwner = fromToken.ownerOf(tokenId);
 
         require(msg.sender == tokenOwner || msg.sender == validator,
@@ -168,7 +169,7 @@ contract FromBridge is Ownable, Initializable {
         uint256 requestNonce,
         bytes32 commitment, uint256 requestTimestamp,
         bytes memory ownerSignature, bytes memory validatorSignature
-    ) external onlyInitialized("FromBridge") onlyValidator("Commit: Only validator is allowed to commit") {
+    ) external override onlyInitialized("FromBridge") onlyValidator("Commit: Only validator is allowed to commit") {
         // Check all requirements to commit.
         _checkCommitRequirements(
             tokenOwner, tokenId,
