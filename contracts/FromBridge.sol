@@ -111,14 +111,20 @@ contract FromBridge is Ownable, Initializable {
     }
 
     /**
-     * @dev To be called before requesting the validator for token bridging.
+     * @dev There are 2 cases that this function is called.
+     * 1. Users call before requesting the validator for token bridging.
      * Because the validator will not accept a request without the right nonce.
      * Users could query only the nonces of their currently owned tokens.
+     * 2. The validator calls after receive a request from a user, to check if
+     * the nonce sent by that user is valid.
+     * @param tokenId The ID of the requested token.
+     * @return nonce The current request nonce associated with that owner and token ID.
      */
     function getRequestNonce(uint256 tokenId) external view returns (uint256) {
         address tokenOwner = fromToken.ownerOf(tokenId);
 
-        require(msg.sender == tokenOwner, "GetNonce: Message sender is not the token owner");
+        require(msg.sender == tokenOwner || msg.sender == validator,
+            "GetNonce: Message sender must be the token owner or the validator");
 
         return _requestNonces[tokenOwner][tokenId];
     }
@@ -277,21 +283,19 @@ contract FromBridge is Ownable, Initializable {
      * get the token back, the processing action will be transfer the token to FromBridge.
      */
     function _processToken(uint256 tokenId) internal virtual {
-        fromToken.burn(tokenId);
+        ERC721Burnable(fromToken).burn(tokenId);
     }
 
     /**
      * @dev Validate request's nonce. Only check equality.
-     * If this function is overrided, "_updateNonce" function should be overrided as well.
      */
     function _isValidNonce(address tokenOwner, uint256 tokenId, uint256 requestNonce)
-    internal virtual view returns (bool) {
+    internal view returns (bool) {
         return _requestNonces[tokenOwner][tokenId] == requestNonce;
     }
 
     /**
      * @dev Update nonce. Only increase by 1.
-     * If this function is overrided, "_isValidNonce" function should be overrided as well.
      */
     function _updateNonce(address tokenOwner, uint256 tokenId) internal virtual {
         _requestNonces[tokenOwner][tokenId]++;
