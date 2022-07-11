@@ -25,7 +25,7 @@ contract ClaimToBridge is ToBridge, IClaim {
     /**
      * - globalWaitingDurationToAcquireByClaim: The duration the token owner needs
      * to wait in order to acquire by claim, starting from claim's timestamp
-     * determined by FromBridge. This is to give the validator time to deny claim.
+     * determined by ToBridge. This is to give the validator time to deny claim.
      * - minimumEscrow: Users must send an amount of the chain's native currency
      * (an escrow) when claimming.
      * So this variable specifies the minimum value of that amount.

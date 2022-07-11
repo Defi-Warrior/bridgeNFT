@@ -3,6 +3,17 @@ pragma solidity ^0.8.0;
 
 interface IClaim {
     /**
+     * @return The current global time duration the token owner needs to wait in order to
+     * acquire by claim, starting from claim's timestamp determined by ToBridge.
+     */
+    function globalWaitingDurationToAcquireByClaim() external view returns (uint256);
+
+    /**
+     * @return The minimum value of the native currency for escrow.
+     */
+    function minimumEscrow() external view returns (uint256);
+
+    /**
      * @dev This function is called by users to claim that the old token has been processed
      * but they have not received the secret from the validator. Afterwards users may acquire
      * the new token by calling "acquireByClaim" function.
