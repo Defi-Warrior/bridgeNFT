@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
+import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "./utils/Signature.sol";
 
@@ -32,11 +33,11 @@ contract FromBridge is Ownable, Initializable {
      * - validator: (Blockchain) Address of the validator that provides owner signature
      * and "secret" to obtain the new token on the other chain.
      */
-    ERC721Burnable  public      fromToken;
-    address         public      fromBridge;
-    address         public      toToken;
-    address         public      toBridge;
-    address         public      validator;
+    IERC721Metadata public fromToken;
+    address         public fromBridge;
+    address         public toToken;
+    address         public toBridge;
+    address         public validator;
 
     /**
      * Boolean flag to determine whether this contract has been initialized or not.
@@ -103,7 +104,7 @@ contract FromBridge is Ownable, Initializable {
         toBridge = toBridge_;
         validator = validator_;
 
-        fromToken = ERC721Burnable(fromToken_);
+        fromToken = IERC721Metadata(fromToken_);
         fromBridge = address(this);
         
         _finishInitialization();
@@ -297,7 +298,7 @@ contract FromBridge is Ownable, Initializable {
      * get the token back, the processing action will be transfer the token to FromBridge.
      */
     function _processToken(uint256 tokenId) internal virtual {
-        ERC721Burnable(fromToken).burn(tokenId);
+        ERC721Burnable(address(fromToken)).burn(tokenId);
     }
 
     /**
