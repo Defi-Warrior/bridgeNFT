@@ -5,7 +5,7 @@ import "./ToBridge.sol";
 
 /**
  * @title ClaimToBridge
- * @dev This contract adds claim functionality to base ToBridge contract.
+ * @dev This contract adds claim functionality to parent ToBridge contract.
  */
 contract ClaimToBridge is ToBridge {
 
@@ -31,12 +31,6 @@ contract ClaimToBridge is ToBridge {
      */
     uint256 public globalWaitingDurationToAcquireByClaim;
     uint256 public minimumEscrow;
-
-    /**
-     * Boolean flag to determine whether the claim functionality has been opened or not.
-     * "claim", "acquireByClaim" and "deny" functions are blocked if not opened.
-     */
-    bool private _openedForClaim;
 
     /**
      * Mapping from validator's commitment to claim.
@@ -81,29 +75,57 @@ contract ClaimToBridge is ToBridge {
         uint256         denialTimestamp,
         uint256         waitingDurationToAcquireByClaim);
 
-    modifier onlyOpenedForClaim() {
-        require(_openedForClaim, "ClaimToBridge: Claim functionality is not opened");
-        _;
-    }
-
     modifier onlyValidator(string memory errorMessage) {
         require(msg.sender == validator, errorMessage);
         _;
     }
 
     /**
+     * @dev This function is made to always revert to prevent accidently being called.
+     */
+    function initialize(
+        address fromToken_,
+        address fromBridge_,
+        address toToken_,
+        address validator_,
+        uint256 globalWaitingDurationForOldTokenToBeProcessed_
+    ) public pure override {
+        // Warning supressing purpose.
+        if (false) {
+            fromToken_;
+            fromBridge_;
+            toToken_;
+            validator_;
+            globalWaitingDurationForOldTokenToBeProcessed_;
+        }
+
+        revert("Please use this contract's initialize(...) function(s) instead of the one(s) from parent contract(s)");
+    }
+
+    /**
      * @dev To be called immediately after contract deployment. Replaces constructor.
-     * This function is an overloading function of the "initialize" function in base
-     * ToBridge contract. If the "initialize" function in ToBridge is called, this function
-     * will become uncallable (due to the same "initializer" modifier). In that case,
-     * the deployed contract will become a normal ToBridge contract (no claim functionality).
+     * This function is an overloading function of the "initialize" function in parent
+     * ToBridge contract.
      *
-     * Guide for overriding and overloading this function:
-     * - MUST have "onlyOwner" and "initializer" modifier.
-     * - MUST NOT call super.initialize() (for overriding).
-     * - MUST initialize all state variables initialized by this function.
-     * - After that do whatever needed things for its state variables' initialization.
-     * - MUST call _openForClaim() and _finishInitialization() at the end of the function.
+     * Guide for child contracts' initialization:
+     *
+     * - If having the same parameters as this function but initializing state variables
+     * in a different way, OVERRIDE this function according to these requirements:
+     *  + MUST specify "onlyOwner" and "initializer" modifier.
+     *  + MUST NOT call super.initialize().
+     *  + MUST initialize all state variables initialized by this function (in the desired way).
+     *  + MUST call _finishInitialization() at the end of the function.
+     *
+     * - If having more parameters than this function, do two things:
+     * OVERRIDE this function then make it always revert.
+     * Write OVERLOAD function(s) according to these requirements:
+     *  + MUST specify "onlyOwner" and "initializer" modifier.
+     *  + MUST include all parameters from this funtion.
+     *  + MUST initialize all state variables initialized by this function.
+     *  + After that do whatever needed things for its state variables' initialization.
+     *  + MUST call _finishInitialization() at the end of the function.
+     *
+     * - If having less parameters... the Earth will explode, don't do that.
      */
     function initialize(
         address fromToken_,
@@ -124,17 +146,7 @@ contract ClaimToBridge is ToBridge {
         toToken = ToNFT(toToken_);
         toBridge = address(this);
 
-        _openForClaim();
         _finishInitialization();
-    }
-
-    /**
-     * @dev This function MUST be called in every "initialize" function that opens
-     * claim functionality, including overriding and overloading function, at the end
-     * of the function.
-     */
-    function _openForClaim() internal onlyInitializing {
-        _openedForClaim = true;
     }
 
     /**
@@ -169,7 +181,7 @@ contract ClaimToBridge is ToBridge {
         string memory tokenUri,
         bytes32 commitment, uint256 requestTimestamp,
         bytes memory validatorSignature
-    ) external payable onlyInitialized onlyOpenedForClaim nonReentrant {
+    ) external payable onlyInitialized("ClaimToBridge") nonReentrant {
         // Check all requirements to claim.
         _checkClaimRequiments(
             tokenOwner, tokenId,
@@ -206,7 +218,7 @@ contract ClaimToBridge is ToBridge {
     }
 
     /**
-     * @dev Check all requirements to claim token. If an inheriting contract has more
+     * @dev Check all requirements to claim token. If an child contract has more
      * requirements, when overriding it SHOULD first call super._checkClaimRequiments(...)
      * then add its own requirements.
      * Parameters are the same as "claim" function.
@@ -286,7 +298,7 @@ contract ClaimToBridge is ToBridge {
      * and vice versa, so the commitment could act as the claim's identity.
      */
     function acquireByClaim(bytes32 commitment)
-    external onlyInitialized onlyOpenedForClaim nonReentrant {
+    external onlyInitialized("ClaimToBridge") nonReentrant {
         // Retrieve claim.
         ClaimDetail storage claimDetail = _claims[commitment];
 
@@ -331,7 +343,7 @@ contract ClaimToBridge is ToBridge {
     }
 
     /**
-     * @dev Check all requirements to acquire token by claim. If an inheriting contract has more
+     * @dev Check all requirements to acquire token by claim. If an child contract has more
      * requirements, when overriding it SHOULD first call super._checkAcquireByClaimRequiments(...)
      * then add its own requirements.
      * @param commitment The validator's commitment.
@@ -388,7 +400,7 @@ contract ClaimToBridge is ToBridge {
      * and vice versa, so the commitment could act as the claim's identity.
      */
     function deny(bytes32 commitment)
-    external onlyInitialized onlyOpenedForClaim onlyValidator("Deny: Only validator is allowed to deny") {
+    external onlyInitialized("ClaimToBridge") onlyValidator("Deny: Only validator is allowed to deny") {
         // Retrieve claim.
         ClaimDetail storage claimDetail = _claims[commitment];
 
@@ -423,7 +435,7 @@ contract ClaimToBridge is ToBridge {
     }
 
     /**
-     * @dev Check all requirements to deny claim. If an inheriting contract has more
+     * @dev Check all requirements to deny claim. If an child contract has more
      * requirements, when overriding it SHOULD first call super._checkDenyRequiments(...)
      * then add its own requirements.
      * @param commitment The validator's commitment.
@@ -446,12 +458,12 @@ contract ClaimToBridge is ToBridge {
 
         // Warning supressing purpose.
         // The "claimDetail" variable is not used for now but still in parameters to cover the case
-        // there is any inheriting contract overrides this function and uses the claim's data.
+        // there is any child contract overrides this function and uses the claim's data.
         if (false) { claimDetail; }
     }
 
     /**
-     * @dev This function is the core of denial process. Inheriting contract shall override
+     * @dev This function is the core of denial process. Child contract shall override
      * this function if it adds more logic.
      * @param commitment The validator's commitment. It uniquely identifies every claim.
      */

@@ -56,7 +56,7 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
 
     /**
      * Boolean flag to determine whether this contract has been initialized or not.
-     * "acquire" function is blocked if not initialized.
+     * Certain functions are blocked if not initialized.
      */
     bool private _initialized = false;
 
@@ -80,20 +80,34 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
         uint256         waitingDurationForOldTokenToBeProcessed,
         uint256         acquirementTimestamp);
 
-    modifier onlyInitialized() {
-        require(_initialized, "ToBridge: Contract is not initialized");
+    modifier onlyInitialized(string memory contractName) {
+        require(_initialized,
+            string(abi.encodePacked(contractName, ": Contract is not initialized")));
         _;
     }
 
     /**
      * @dev To be called immediately after contract deployment. Replaces constructor.
      *
-     * Guide for overriding and overloading this function:
-     * - MUST have "onlyOwner" and "initializer" modifier.
-     * - MUST NOT call super.initialize() (for overriding).
-     * - MUST initialize all state variables initialized by this function.
-     * - After that do whatever needed things for its state variables' initialization.
-     * - MUST call _finishInitialization() at the end of the function.
+     * Guide for child contracts' initialization:
+     *
+     * - If having the same parameters as this function but initializing state variables
+     * in a different way, OVERRIDE this function according to these requirements:
+     *  + MUST specify "onlyOwner" and "initializer" modifier.
+     *  + MUST NOT call super.initialize().
+     *  + MUST initialize all state variables initialized by this function (in the desired way).
+     *  + MUST call _finishInitialization() at the end of the function.
+     *
+     * - If having more parameters than this function, do two things:
+     * OVERRIDE this function then make it always revert.
+     * Write OVERLOAD function(s) according to these requirements:
+     *  + MUST specify "onlyOwner" and "initializer" modifier.
+     *  + MUST include all parameters from this funtion.
+     *  + MUST initialize all state variables initialized by this function.
+     *  + After that do whatever needed things for its state variables' initialization.
+     *  + MUST call _finishInitialization() at the end of the function.
+     *
+     * - If having less parameters... the Earth will explode, don't do that.
      */
     function initialize(
         address fromToken_,
@@ -153,7 +167,7 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
         bytes32 commitment, bytes calldata secret,
         uint256 requestTimestamp,
         bytes memory validatorSignature
-    ) external onlyInitialized nonReentrant {
+    ) external onlyInitialized("ToBridge") nonReentrant {
         // Check all requirements to acquire.
         _checkAcquireRequiments(
             tokenOwner, tokenId,
@@ -191,7 +205,7 @@ contract ToBridge is Ownable, Initializable, ReentrancyGuard {
     }
 
     /**
-     * @dev Check all requirements to acquire new token. If an inheriting contract has more
+     * @dev Check all requirements to acquire new token. If an child contract has more
      * requirements, when overriding, it SHOULD first call super._checkAcquireRequiments(...)
      * then add its own requirements.
      * Parameters are the same as "acquire" function.
