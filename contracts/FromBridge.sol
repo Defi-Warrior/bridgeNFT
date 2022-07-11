@@ -52,7 +52,7 @@ contract FromBridge is IFromBridge, Ownable, Initializable {
      * Even if the same owner requests bridging the same token ID again, the nonce
      * will be different.
      */
-    mapping(address => mapping(uint256 => uint256)) private _requestNonces;
+    mapping(address => mapping(uint256 => uint256)) internal _requestNonces;
 
     event Commit(
         address indexed tokenOwner,
@@ -306,7 +306,7 @@ contract FromBridge is IFromBridge, Ownable, Initializable {
      * @dev Validate request's nonce. Only check equality.
      */
     function _isValidNonce(address tokenOwner, uint256 tokenId, uint256 requestNonce)
-    internal view returns (bool) {
+    internal virtual view returns (bool) {
         return _requestNonces[tokenOwner][tokenId] == requestNonce;
     }
 
