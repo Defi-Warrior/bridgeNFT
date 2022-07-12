@@ -3,11 +3,6 @@ pragma solidity ^0.8.0;
 
 interface IFromBridge {
     /**
-     * @return Address of the current validator.
-     */
-    function validator() external view returns (address);
-
-    /**
      * @dev There are two cases that this function is called.
      * 1. Users call before requesting the validator for token bridging.
      * Because the validator will not accept a request without the right nonce.
