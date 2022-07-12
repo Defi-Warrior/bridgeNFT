@@ -30,8 +30,8 @@ contract ClaimToBridge is ToBridge, IClaim {
      * (an escrow) when claimming.
      * So this variable specifies the minimum value of that amount.
      */
-    uint256 public globalWaitingDurationToAcquireByClaim;
-    uint256 public minimumEscrow;
+    uint256 public override globalWaitingDurationToAcquireByClaim;
+    uint256 public override minimumEscrow;
 
     /**
      * Mapping from validator's commitment to claim.
@@ -190,32 +190,25 @@ contract ClaimToBridge is ToBridge, IClaim {
             commitment, requestTimestamp,
             validatorSignature);
 
-        // Rename variables for readability.
-        address claimer = tokenOwner;
-        uint256 waitingDurationForOldTokenToBeProcessed = globalWaitingDurationForOldTokenToBeProcessed;
-        uint256 timestamp = block.timestamp;
-        uint256 waitingDurationToAcquireByClaim = globalWaitingDurationToAcquireByClaim;
-        uint256 escrow = msg.value;
-
         // Save claim.
         _saveClaim(
-            claimer, tokenId,
+            tokenOwner, tokenId,
             tokenUri,
             commitment, requestTimestamp,
-            waitingDurationForOldTokenToBeProcessed,
-            timestamp,
-            waitingDurationToAcquireByClaim,
-            escrow);
+            globalWaitingDurationForOldTokenToBeProcessed,
+            block.timestamp,
+            globalWaitingDurationToAcquireByClaim,
+            msg.value);
 
         // Emit event.
         emit Claim(
-            claimer, tokenId,
+            tokenOwner, tokenId,
             tokenUri,
             commitment, requestTimestamp,
-            waitingDurationForOldTokenToBeProcessed,
-            timestamp,
-            waitingDurationToAcquireByClaim,
-            escrow);
+            globalWaitingDurationForOldTokenToBeProcessed,
+            block.timestamp,
+            globalWaitingDurationToAcquireByClaim,
+            msg.value);
     }
 
     /**
@@ -312,35 +305,25 @@ contract ClaimToBridge is ToBridge, IClaim {
         // Return escrow back to claimer.
         payable(claimDetail.claimer).transfer(claimDetail.escrow);
 
-        // Rename variables for readability.
-        address         acquirer                                = claimDetail.claimer;
-        uint256         oldTokenId                              = claimDetail.tokenId;
-        string storage  tokenUri                                = claimDetail.tokenUri;
-        uint256         requestTimestamp                        = claimDetail.requestTimestamp;
-        uint256         waitingDurationForOldTokenToBeProcessed = claimDetail.waitingDurationForOldTokenToBeProcessed;
-        uint256         claimTimestamp                          = claimDetail.timestamp;
-        uint256         waitingDurationToAcquireByClaim         = claimDetail.waitingDurationToAcquireByClaim;
-        uint256         acquirementTimestamp                    = block.timestamp;
-
         // Save acquirement.
         _saveAcquirement(
-            acquirer,
-            oldTokenId, newTokenId,
-            tokenUri,
-            commitment, requestTimestamp,
-            waitingDurationForOldTokenToBeProcessed,
-            acquirementTimestamp);
+            claimDetail.claimer,
+            claimDetail.tokenId, newTokenId,
+            claimDetail.tokenUri,
+            commitment, claimDetail.requestTimestamp,
+            claimDetail.waitingDurationForOldTokenToBeProcessed,
+            block.timestamp);
 
         // Emit event.
         emit AcquireByClaim(
-            acquirer,
-            oldTokenId, newTokenId,
-            tokenUri,
-            commitment, requestTimestamp,
-            waitingDurationForOldTokenToBeProcessed,
-            claimTimestamp,
-            waitingDurationToAcquireByClaim,
-            acquirementTimestamp);
+            claimDetail.claimer,
+            claimDetail.tokenId, newTokenId,
+            claimDetail.tokenUri,
+            commitment, claimDetail.requestTimestamp,
+            claimDetail.waitingDurationForOldTokenToBeProcessed,
+            claimDetail.timestamp,
+            claimDetail.waitingDurationToAcquireByClaim,
+            block.timestamp);
     }
 
     /**
@@ -414,25 +397,15 @@ contract ClaimToBridge is ToBridge, IClaim {
         // Send escrow to validator.
         payable(validator).transfer(claimDetail.escrow);
 
-        // Rename variables for readability.
-        address         claimer                                 = claimDetail.claimer;
-        uint256         tokenId                                 = claimDetail.tokenId;
-        string storage  tokenUri                                = claimDetail.tokenUri;
-        uint256         requestTimestamp                        = claimDetail.requestTimestamp;
-        uint256         waitingDurationForOldTokenToBeProcessed = claimDetail.waitingDurationForOldTokenToBeProcessed;
-        uint256         claimTimestamp                          = claimDetail.timestamp;
-        uint256         denialTimestamp                         = block.timestamp;
-        uint256         waitingDurationToAcquireByClaim         = claimDetail.waitingDurationToAcquireByClaim;
-
         // Emit event.
         emit Deny(
-            claimer, tokenId,
-            tokenUri,
-            commitment, requestTimestamp,
-            waitingDurationForOldTokenToBeProcessed,
-            claimTimestamp,
-            denialTimestamp,
-            waitingDurationToAcquireByClaim);
+            claimDetail.claimer, claimDetail.tokenId,
+            claimDetail.tokenUri,
+            commitment, claimDetail.requestTimestamp,
+            claimDetail.waitingDurationForOldTokenToBeProcessed,
+            claimDetail.timestamp,
+            block.timestamp,
+            claimDetail.waitingDurationToAcquireByClaim);
     }
 
     /**
