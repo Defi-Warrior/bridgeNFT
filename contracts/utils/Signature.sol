@@ -73,7 +73,7 @@ library Signature {
         address fromToken, address fromBridge,
         address toToken, address toBridge,
         address tokenOwner, uint256 tokenId,
-        string memory tokenUri,
+        bytes32 tokenUri,
         bytes32 commitment, uint256 requestTimestamp,
         address validator,
         bytes memory signature
@@ -83,10 +83,7 @@ library Signature {
             fromToken, fromBridge,
             toToken, toBridge,
             tokenOwner, tokenId,
-            // The "tokenUri" variable's size is dynamic so it needs to be hashed
-            // when crafting message for security reason.
-            // Here abi.encodePacked is used only to convert string to bytes.
-            keccak256(abi.encodePacked(tokenUri)),
+            tokenUri,
             commitment, requestTimestamp
         );
 

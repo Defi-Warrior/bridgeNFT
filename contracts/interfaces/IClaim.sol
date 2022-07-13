@@ -28,7 +28,7 @@ interface IClaim {
      */
     function claim(
         address tokenOwner, uint256 tokenId,
-        string memory tokenUri,
+        bytes32 tokenUri,
         bytes32 commitment, uint256 requestTimestamp,
         bytes memory validatorSignature
     ) external payable;
@@ -39,7 +39,7 @@ interface IClaim {
      * @param commitment The validator's commitment. There is only one claim per commitment
      * and vice versa, so the commitment could act as the claim's identity.
      */
-    function acquireByClaim(bytes32 commitment) external;
+    function acquireByClaim(bytes32 commitment,  uint32[30] memory warriorAttributes, uint32[20][6] memory bodypartAttributes) external;
 
     /**
      * @dev This function may be called by the validator after a claim was submitted by a user,

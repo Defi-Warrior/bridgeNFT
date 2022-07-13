@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IToBridge.sol";
+import "./interfaces/INFTManager.sol";
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./ToNFT.sol";
@@ -23,7 +24,7 @@ contract ToBridge is IToBridge, Ownable, Initializable, ReentrancyGuard {
         address acquirer;
         uint256 oldTokenId;
         uint256 newTokenId;
-        string  tokenUri;
+        bytes32  tokenUri;
         uint256 requestTimestamp;
         uint256 waitingDurationForOldTokenToBeProcessed;
         uint256 timestamp;
@@ -53,6 +54,7 @@ contract ToBridge is IToBridge, Ownable, Initializable, ReentrancyGuard {
     ToNFT   public  toToken;
     address public  toBridge;
     address public  validator;
+    INFTManager public nftManager;
     uint256 public  globalWaitingDurationForOldTokenToBeProcessed;
 
     /**
@@ -75,7 +77,7 @@ contract ToBridge is IToBridge, Ownable, Initializable, ReentrancyGuard {
         address indexed acquirer,
         uint256 indexed oldTokenId,
         uint256         newTokenId,
-        string          tokenUri,
+        bytes32          tokenUri,
         bytes32 indexed commitment,
         uint256         requestTimestamp,
         uint256         waitingDurationForOldTokenToBeProcessed,
@@ -114,12 +116,14 @@ contract ToBridge is IToBridge, Ownable, Initializable, ReentrancyGuard {
         address fromToken_,
         address fromBridge_,
         address toToken_,
+        address nftManager_,
         address validator_,
         uint256 globalWaitingDurationForOldTokenToBeProcessed_
     ) public virtual onlyOwner initializer {
         fromToken = fromToken_;
         fromBridge = fromBridge_;
         validator = validator_;
+        nftManager = INFTManager(nftManager_);
         globalWaitingDurationForOldTokenToBeProcessed = globalWaitingDurationForOldTokenToBeProcessed_;
 
         toToken = ToNFT(toToken_);
@@ -154,7 +158,6 @@ contract ToBridge is IToBridge, Ownable, Initializable, ReentrancyGuard {
      * @dev This function is called by users to get new token corresponding to the old one.
      * @param tokenOwner The owner of the old token.
      * @param tokenId The ID of the old token.
-     * @param tokenUri The URI of the old token.
      * @param commitment The validator's commitment.
      * @param secret The validator's revealed value.
      * @param requestTimestamp The timestamp when the validator received request.
@@ -164,12 +167,14 @@ contract ToBridge is IToBridge, Ownable, Initializable, ReentrancyGuard {
      */
     function acquire(
         address tokenOwner, uint256 tokenId,
-        string memory tokenUri,
+        uint32[30] memory warriorAttributes,
+        uint32[20][6] memory bodypartAttributes,
         bytes32 commitment, bytes calldata secret,
         uint256 requestTimestamp,
         bytes memory validatorSignature
     ) external override onlyInitialized("ToBridge") nonReentrant {
         // Check all requirements to acquire.
+        bytes32 tokenUri = keccak256(abi.encodePacked(warriorAttributes, bodypartAttributes));
         _checkAcquireRequiments(
             tokenOwner, tokenId,
             tokenUri,
@@ -178,7 +183,7 @@ contract ToBridge is IToBridge, Ownable, Initializable, ReentrancyGuard {
             validatorSignature);
 
         // Mint a new token corresponding to the old one.
-        uint256 newTokenId = _mint(tokenOwner, tokenUri);
+        uint256 newTokenId = _mint(tokenOwner, warriorAttributes, bodypartAttributes);
 
         // Rename variables for readability.
         address acquirer = tokenOwner;
@@ -220,7 +225,7 @@ contract ToBridge is IToBridge, Ownable, Initializable, ReentrancyGuard {
      */
     function _checkAcquireRequiments(
         address tokenOwner, uint256 tokenId,
-        string memory tokenUri,
+        bytes32 tokenUri,
         bytes32 commitment, bytes calldata secret,
         uint256 requestTimestamp,
         bytes memory validatorSignature
@@ -251,13 +256,10 @@ contract ToBridge is IToBridge, Ownable, Initializable, ReentrancyGuard {
     /**
      * @dev Mint new token.
      * @param to The owner of the newly minted token.
-     * @param tokenUri The URI of the newly minted token.
      * @return The ID of the newly minted token.
      */
-    function _mint(address to, string memory tokenUri) internal virtual returns (uint256) {
-        uint256 tokenId = _findAvailableTokenId(toToken);
-
-        toToken.mint(to, tokenId, tokenUri);
+    function _mint(address to, uint32[30] memory warriorAttributes, uint32[20][6] memory bodypartAttributes) internal virtual returns (uint256) {
+        uint tokenId = nftManager.mint(to, warriorAttributes, bodypartAttributes);
 
         return tokenId;
     }
@@ -298,7 +300,7 @@ contract ToBridge is IToBridge, Ownable, Initializable, ReentrancyGuard {
     function _saveAcquirement(
         address acquirer,
         uint256 oldTokenId, uint256 newTokenId,
-        string memory tokenUri, bytes32 commitment,
+        bytes32 tokenUri, bytes32 commitment,
         uint256 requestTimestamp,
         uint256 waitingDurationForOldTokenToBeProcessed,
         uint256 acquirementTimestamp
@@ -338,7 +340,7 @@ contract ToBridge is IToBridge, Ownable, Initializable, ReentrancyGuard {
      */
     function _verifyValidatorSignature(
         address tokenOwner, uint256 tokenId,
-        string memory tokenUri,
+        bytes32 tokenUri,
         bytes32 commitment, uint256 requestTimestamp,
         bytes memory signature
     ) internal view returns (bool) {

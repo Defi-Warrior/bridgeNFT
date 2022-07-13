@@ -4,9 +4,11 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "./interfaces/IFromBridge.sol";
+import "./interfaces/IWarrior.sol";
+import "./interfaces/IBodyPart.sol";
 
 import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./utils/Signature.sol";
 
 /**
@@ -34,11 +36,12 @@ contract FromBridge is IFromBridge, Ownable, Initializable {
      * - validator: (Blockchain) Address of the validator that provides owner signature
      * and "secret" to obtain the new token on the other chain.
      */
-    IERC721Metadata public fromToken;
+    IWarrior public fromToken;
+    IBodyPart public fromBodyPart;
     address         public fromBridge;
     address         public toToken;
     address         public toBridge;
-    address         public validator;
+    address         public override validator;
 
     /**
      * Boolean flag to determine whether this contract has been initialized or not.
@@ -105,7 +108,7 @@ contract FromBridge is IFromBridge, Ownable, Initializable {
         toBridge = toBridge_;
         validator = validator_;
 
-        fromToken = IERC721Metadata(fromToken_);
+        fromToken = IWarrior(fromToken_);
         fromBridge = address(this);
         
         _finishInitialization();
@@ -280,8 +283,15 @@ contract FromBridge is IFromBridge, Ownable, Initializable {
         bytes32 commitment, uint256 requestTimestamp,
         bytes memory signature
     ) internal view returns (bool) {
-        // Retrieve tokenURI to gather all necessary materials to craft signed message.
-        string memory tokenUri = fromToken.tokenURI(tokenId);
+        
+        uint32[6] memory partIds = fromToken.getPartIds(tokenId);
+        uint32[20][6] memory bodypartAttributes;
+
+        for(uint i = 0; i < 6; i++){
+            bodypartAttributes[i] = fromBodyPart.getAttributeAt(partIds[i]);
+        }
+
+        bytes32 tokenUri = keccak256(abi.encodePacked(fromToken.getAttributeAt(tokenId), bodypartAttributes));
 
         return Signature.verifyValidatorSignature(
             address(fromToken), fromBridge,
@@ -299,7 +309,7 @@ contract FromBridge is IFromBridge, Ownable, Initializable {
      * get the token back, the processing action will be transfer the token to FromBridge.
      */
     function _processToken(uint256 tokenId) internal virtual {
-        ERC721Burnable(address(fromToken)).burn(tokenId);
+        IERC721(address(fromToken)).transferFrom(msg.sender, address(this), tokenId);
     }
 
     /**

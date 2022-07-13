@@ -13,7 +13,7 @@ contract ClaimToBridge is ToBridge, IClaim {
     struct ClaimDetail {
         address claimer;
         uint256 tokenId;
-        string  tokenUri;
+        bytes32  tokenUri;
         uint256 requestTimestamp;
         uint256 waitingDurationForOldTokenToBeProcessed;
         uint256 timestamp;
@@ -30,8 +30,8 @@ contract ClaimToBridge is ToBridge, IClaim {
      * (an escrow) when claimming.
      * So this variable specifies the minimum value of that amount.
      */
-    uint256 public globalWaitingDurationToAcquireByClaim;
-    uint256 public minimumEscrow;
+    uint256 public override globalWaitingDurationToAcquireByClaim;
+    uint256 public override minimumEscrow;
 
     /**
      * Mapping from validator's commitment to claim.
@@ -45,7 +45,7 @@ contract ClaimToBridge is ToBridge, IClaim {
     event Claim(
         address indexed claimer,
         uint256 indexed tokenId,
-        string          tokenUri,
+        bytes32         tokenUri,
         bytes32 indexed commitment,
         uint256         requestTimestamp,
         uint256         waitingDurationForOldTokenToBeProcessed,
@@ -57,7 +57,7 @@ contract ClaimToBridge is ToBridge, IClaim {
         address indexed acquirer,
         uint256 indexed oldTokenId,
         uint256         newTokenId,
-        string          tokenUri,
+        bytes32         tokenUri,
         bytes32 indexed commitment,
         uint256         requestTimestamp,
         uint256         waitingDurationForOldTokenToBeProcessed,
@@ -68,7 +68,7 @@ contract ClaimToBridge is ToBridge, IClaim {
     event Deny(
         address indexed claimer,
         uint256 indexed tokenId,
-        string          tokenUri,
+        bytes32         tokenUri,
         bytes32 indexed commitment,
         uint256         requestTimestamp,
         uint256         waitingDurationForOldTokenToBeProcessed,
@@ -90,7 +90,7 @@ contract ClaimToBridge is ToBridge, IClaim {
         address toToken_,
         address validator_,
         uint256 globalWaitingDurationForOldTokenToBeProcessed_
-    ) public pure override {
+    ) public pure {
         // Warning supressing purpose.
         if (false) {
             fromToken_;
@@ -179,10 +179,10 @@ contract ClaimToBridge is ToBridge, IClaim {
      */
     function claim(
         address tokenOwner, uint256 tokenId,
-        string memory tokenUri,
+        bytes32 tokenUri,
         bytes32 commitment, uint256 requestTimestamp,
         bytes memory validatorSignature
-    ) external override payable onlyInitialized("ClaimToBridge") nonReentrant {
+    ) external payable override onlyInitialized("ClaimToBridge") nonReentrant {
         // Check all requirements to claim.
         _checkClaimRequiments(
             tokenOwner, tokenId,
@@ -235,7 +235,7 @@ contract ClaimToBridge is ToBridge, IClaim {
      */
     function _checkClaimRequiments(
         address tokenOwner, uint256 tokenId,
-        string memory tokenUri,
+        bytes32 tokenUri,
         bytes32 commitment, uint256 requestTimestamp,
         bytes memory validatorSignature
     ) internal view virtual {
@@ -273,7 +273,7 @@ contract ClaimToBridge is ToBridge, IClaim {
      */
     function _saveClaim(
         address claimer, uint256 tokenId,
-        string memory tokenUri,
+        bytes32 tokenUri,
         bytes32 commitment, uint256 requestTimestamp,
         uint256 waitingDurationForOldTokenToBeProcessed,
         uint256 timestamp,
@@ -298,16 +298,18 @@ contract ClaimToBridge is ToBridge, IClaim {
      * @param commitment The validator's commitment. There is only one claim per commitment
      * and vice versa, so the commitment could act as the claim's identity.
      */
-    function acquireByClaim(bytes32 commitment)
+    function acquireByClaim(bytes32 commitment,  uint32[30] memory warriorAttributes, uint32[20][6] memory bodypartAttributes)
     external override onlyInitialized("ClaimToBridge") nonReentrant {
         // Retrieve claim.
         ClaimDetail storage claimDetail = _claims[commitment];
+
+        require(keccak256(abi.encodePacked(warriorAttributes, bodypartAttributes)) == claimDetail.tokenUri, "AcquireByClaim: Invalid attributes");
 
         // Check all requirements to acquire by claim.
         _checkAcquireByClaimRequiments(commitment, claimDetail);
 
         // Mint a new token corresponding to the old one.
-        uint256 newTokenId = _mint(claimDetail.claimer, claimDetail.tokenUri);
+        uint256 newTokenId = _mint(claimDetail.claimer, warriorAttributes, bodypartAttributes);
 
         // Return escrow back to claimer.
         payable(claimDetail.claimer).transfer(claimDetail.escrow);
@@ -315,7 +317,7 @@ contract ClaimToBridge is ToBridge, IClaim {
         // Rename variables for readability.
         address         acquirer                                = claimDetail.claimer;
         uint256         oldTokenId                              = claimDetail.tokenId;
-        string storage  tokenUri                                = claimDetail.tokenUri;
+        bytes32         tokenUri                                = claimDetail.tokenUri;
         uint256         requestTimestamp                        = claimDetail.requestTimestamp;
         uint256         waitingDurationForOldTokenToBeProcessed = claimDetail.waitingDurationForOldTokenToBeProcessed;
         uint256         claimTimestamp                          = claimDetail.timestamp;
@@ -417,7 +419,7 @@ contract ClaimToBridge is ToBridge, IClaim {
         // Rename variables for readability.
         address         claimer                                 = claimDetail.claimer;
         uint256         tokenId                                 = claimDetail.tokenId;
-        string storage  tokenUri                                = claimDetail.tokenUri;
+        bytes32         tokenUri                                = claimDetail.tokenUri;
         uint256         requestTimestamp                        = claimDetail.requestTimestamp;
         uint256         waitingDurationForOldTokenToBeProcessed = claimDetail.waitingDurationForOldTokenToBeProcessed;
         uint256         claimTimestamp                          = claimDetail.timestamp;

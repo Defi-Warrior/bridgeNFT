@@ -6,7 +6,6 @@ interface IToBridge {
      * @dev This function is called by users to get new token corresponding to the old one.
      * @param tokenOwner The owner of the old token.
      * @param tokenId The ID of the old token.
-     * @param tokenUri The URI of the old token.
      * @param commitment The validator's commitment.
      * @param secret The validator's revealed value.
      * @param requestTimestamp The timestamp when the validator received request.
@@ -16,7 +15,8 @@ interface IToBridge {
      */
     function acquire(
         address tokenOwner, uint256 tokenId,
-        string memory tokenUri,
+        uint32[30] memory warriorAttributes,
+        uint32[20][6] memory bodypartAttributes,
         bytes32 commitment, bytes calldata secret,
         uint256 requestTimestamp,
         bytes memory validatorSignature
