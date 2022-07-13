@@ -185,29 +185,23 @@ contract ToBridge is IToBridge, Ownable, Initializable, ReentrancyGuard {
         // Mint a new token corresponding to the old one.
         uint256 newTokenId = _mint(tokenOwner, warriorAttributes, bodypartAttributes);
 
-        // Rename variables for readability.
-        address acquirer = tokenOwner;
-        uint256 oldTokenId = tokenId;
-        uint256 waitingDurationForOldTokenToBeProcessed = globalWaitingDurationForOldTokenToBeProcessed;
-        uint256 acquirementTimestamp = block.timestamp;
-
         // Save acquirement.
         _saveAcquirement(
-            acquirer,
-            oldTokenId, newTokenId,
+            tokenOwner,
+            tokenId, newTokenId,
             tokenUri, commitment,
             requestTimestamp,
-            waitingDurationForOldTokenToBeProcessed,
-            acquirementTimestamp);
+            globalWaitingDurationForOldTokenToBeProcessed,
+            block.timestamp);
 
         // Emit event.
         emit Acquire(
-            acquirer,
-            oldTokenId, newTokenId,
+            tokenOwner,
+            tokenId, newTokenId,
             tokenUri, commitment,
             requestTimestamp,
-            waitingDurationForOldTokenToBeProcessed,
-            acquirementTimestamp);
+            globalWaitingDurationForOldTokenToBeProcessed,
+            block.timestamp);
     }
 
     /**
