@@ -55,7 +55,7 @@ return (timestamp, challenge)
 if not (timestamp < now() < timestamp + challengeLifetime) then
     abort
 challenge <- PRF(challengeGenKey, timestamp)
-if not SIG_VERIFY(publicKey, tokenId || requestNonce || challenge, signature) then
+if not SIG_VERIFY(publicKey, tokenId || requestNonce || timestamp || challenge, signature) then
     abort
 ```
 

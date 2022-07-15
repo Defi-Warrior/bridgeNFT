@@ -60,7 +60,7 @@ if not (timestamp < now() < timestamp + challengeLifetime) then
     abort
 if not MAC_VERIFY(challengeMacKey, timestamp || challenge, tag) then
     abort
-if not SIG_VERIFY(publicKey, tokenId || requestNonce || challenge, signature) then
+if not SIG_VERIFY(publicKey, tokenId || requestNonce || timestamp || challenge, signature) then
     abort
 ```
 
