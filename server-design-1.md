@@ -1,6 +1,7 @@
 ####  SUMMARY
 - Deterministic secrets from single commit key
 - No database
+
 #### DEFINE
 ```
 HASH := Keccak256

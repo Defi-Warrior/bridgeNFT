@@ -1,6 +1,7 @@
 ####  SUMMARY
 - Random secrets
 - Need database
+
 #### DEFINE
 ```
 HASH := Keccak256

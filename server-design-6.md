@@ -1,9 +1,10 @@
 ####  SUMMARY
 - Deterministic secrets from multiple independent commit keys
-- Need to update commit key
+- Support update commit key
 - No database
 - Support multiple servers
 - Owner authentication using challenge generated from PRF
+
 #### DEFINE
 ```
 HASH := Keccak256
@@ -55,7 +56,7 @@ return (timestamp, challenge)
 if not (timestamp < now() < timestamp + challengeLifetime) then
     abort
 challenge <- PRF(challengeGenKey, timestamp)
-if not SIG_VERIFY(publicKey, tokenId || requestNonce || timestamp || challenge, signature) then
+if not SIG_VERIFY(publicKey, tokenId || requestNonce || challenge, signature) then
     abort
 ```
 

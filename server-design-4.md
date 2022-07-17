@@ -1,8 +1,9 @@
 ####  SUMMARY
 - Deterministic secrets from multiple independent commit keys
-- Need to update commit key
+- Support update commit key
 - No database
 - Support multiple servers
+
 #### DEFINE
 ```
 HASH := Keccak256

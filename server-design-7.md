@@ -3,7 +3,8 @@
 - Support update commit key
 - No database
 - Support multiple servers
-- Owner authentication using random challenge
+- Owner authentication using challenge generated from PRF
+- Generate challenge periodically
 
 #### DEFINE
 ```
@@ -14,9 +15,6 @@ PRF := HMAC-SHA256
 AEAD := XChaCha20-Poly1305
     AEAD_ENC(key, plaintext, associatedData) -> ciphertext (random)
     AEAD_DEC(key, ciphertext, associatedData) -> plaintext
-MAC := HMAC-SHA256
-    MAC_SIGN(key, message) -> tag
-    MAC_VERIFY(key, message, tag) -> boolean
 SIG := ECDSA
     SIG_SIGN(privateKey, message) -> signature
     SIG_VERIFY(publicKey, message, signature) -> boolean
@@ -27,18 +25,22 @@ SIG := ECDSA
 n
 commitKey[]
 indexEncKey
-challengeMacKey
+challengeGenKey
 challengeLifetime
+challengeGenPeriod (< challengeLifetime)
+lastChallengeGenTimestamp
 ```
 
 #### FUNCTION
-###### SETUP (init_commitKey, init_indexEncKey, init_challengeMacKey, init_challengeLifetime)
+###### SETUP (init_commitKey, init_indexEncKey, init_challengeGenKey, init_challengeLifetime, init_ challengeGenPeriod, init_lastChallengeGenTimestamp)
 ```
 n <- 0
 commitKey[n] <- init_commitKey
 indexEncKey <- init_indexEncKey
-challengeMacKey <- init_challengeMacKey
+challengeGenKey <- init_challengeGenKey
 challengeLifetime <- init_challengeLifetime
+challengeGenPeriod <- init_challengeGenPeriod
+lastChallengeGenTimestamp <- init_lastChallengeGenTimestamp
 ```
 
 ###### COMMIT_KEY_UPDATE (new_commitKey)
@@ -49,25 +51,25 @@ commitKey[n] <- new_commitKey
 
 ###### AUTHENTICATE_CHALLENGE ()
 ```
-timestamp <- now()
-challenge <- random()
-tag <- MAC_SIGN(challengeMacKey, timestamp || challenge)
-return (timestamp, challenge, tag)
+present <- now()
+timestamp <- present - [ (present - lastChallengeGenTimestamp) % challengeGenPeriod ]
+challenge <- PRF(challengeGenKey, timestamp)
+lastChallengeGenTimestamp <- timestamp
+return (timestamp, challenge)
 ```
 
-###### AUTHENTICATE_VERIFY (publicKey, tokenId, requestNonce, timestamp, challenge, tag, signature)
+###### AUTHENTICATE_VERIFY (publicKey, tokenId, requestNonce, timestamp, signature)
 ```
 if not (timestamp < now() < timestamp + challengeLifetime) then
     abort
-if not MAC_VERIFY(challengeMacKey, timestamp || challenge, tag) then
-    abort
+challenge <- PRF(challengeGenKey, timestamp)
 if not SIG_VERIFY(publicKey, tokenId || requestNonce || challenge, signature) then
     abort
 ```
 
-###### COMMIT (ownerAddr, tokenId, requestNonce, timestamp, challenge, tag, signature)
+###### COMMIT (ownerAddr, tokenId, requestNonce, timestamp, signature)
 ```
-AUTHENTICATE_VERIFY(ownerAddr, tokenId, requestNonce, timestamp, challenge, tag, signature)
+AUTHENTICATE_VERIFY(ownerAddr, tokenId, requestNonce, timestamp, signature)
 secret <- PRF(commitKey[n], ownerAddr || tokenId || requestNonce)
 commitment <- HASH(secret)
 keyIndicator <- AEAD_ENC(indexEncKey, n, ownerAddr || tokenId || requestNonce)
