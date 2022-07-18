@@ -4,7 +4,7 @@
 - No database
 - Support multiple servers
 - Owner authentication using challenge generated from PRF
-- Generate challenge periodically
+- Generate challenge periodically, with cache
 
 #### DEFINE
 ```
@@ -29,10 +29,11 @@ challengeGenKey
 challengeLifetime
 challengeGenPeriod (< challengeLifetime)
 lastChallengeGenTimestamp
+lastChallenge
 ```
 
 #### FUNCTION
-###### SETUP (init_commitKey, init_indexEncKey, init_challengeGenKey, init_challengeLifetime, init_ challengeGenPeriod, init_lastChallengeGenTimestamp)
+###### SETUP (init_commitKey, init_indexEncKey, init_challengeGenKey, init_challengeLifetime, init_ challengeGenPeriod, init_lastChallengeGenTimestamp, init_lastChallenge)
 ```
 n <- 0
 commitKey[n] <- init_commitKey
@@ -41,6 +42,7 @@ challengeGenKey <- init_challengeGenKey
 challengeLifetime <- init_challengeLifetime
 challengeGenPeriod <- init_challengeGenPeriod
 lastChallengeGenTimestamp <- init_lastChallengeGenTimestamp
+lastChallenge <- init_lastChallenge
 ```
 
 ###### COMMIT_KEY_UPDATE (new_commitKey)
@@ -53,8 +55,12 @@ commitKey[n] <- new_commitKey
 ```
 present <- now()
 timestamp <- present - [ (present - lastChallengeGenTimestamp) % challengeGenPeriod ]
-challenge <- PRF(challengeGenKey, timestamp)
-lastChallengeGenTimestamp <- timestamp
+if timestamp = lastChallengeGenTimestamp then
+    challenge <- lastChallenge
+else then
+    challenge <- PRF(challengeGenKey, timestamp)
+    lastChallengeGenTimestamp <- timestamp
+    lastChallenge <- challenge
 return (timestamp, challenge)
 ```
 
