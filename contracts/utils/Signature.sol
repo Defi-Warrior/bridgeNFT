@@ -13,34 +13,33 @@ library Signature {
     /**
      * @dev Verify owner's signature. Right now the message is crafted using plain
      * string concatenation. Will upgrade to EIP-712 later.
+     * @param tokenOwner The owner of the requested token.
      * @param fromToken Address (Ethereum format) of fromToken.
      * @param fromBridge Address (Ethereum format) of fromBridge.
      * @param toToken Address (Ethereum format) of toToken.
      * @param toBridge Address (Ethereum format) of toBridge.
-     * @param tokenOwner The owner of the requested token.
      * @param tokenId The ID of the requested token.
      * @param requestNonce The request's nonce.
      * @param signature This signature is signed by the token's owner, and is the prove
      * that the owner indeed requested the token to be bridged.
      * MESSAGE FORMAT:
-     *      "RequestTokenBurn" || fromToken || fromBridge || toToken || toBridge ||
-     *      tokenOwner || tokenId || requestNonce
+     *      "RequestBridge" || fromToken || fromBridge || toToken || toBridge ||
+     *      tokenId || requestNonce
      * @return true if the signature is valid with respect to the owner's address
      * and given information.
      */
     function verifyOwnerSignature(
+        address tokenOwner,
         address fromToken, address fromBridge,
         address toToken, address toBridge,
-        address tokenOwner, uint256 tokenId,
-        uint256 requestNonce,
+        uint256 tokenId, uint256 requestNonce,
         bytes memory signature
     ) internal view returns (bool) {
         // Craft signed message
-        bytes memory message = abi.encodePacked("RequestTokenBurn",
+        bytes memory message = abi.encodePacked("RequestBridge",
             fromToken, fromBridge,
             toToken, toBridge,
-            tokenOwner, tokenId,
-            requestNonce
+            tokenId, requestNonce
         );
 
         return _verifySignature(tokenOwner, message, signature);

@@ -256,10 +256,10 @@ contract FromBridge is IFromBridge, Ownable, Initializable {
         bytes memory signature
     ) internal view returns (bool) {
         return Signature.verifyOwnerSignature(
+            tokenOwner,
             address(fromToken), fromBridge,
             toToken, toBridge,
-            tokenOwner, tokenId,
-            requestNonce,
+            tokenId, requestNonce,
             signature);
     }
 
