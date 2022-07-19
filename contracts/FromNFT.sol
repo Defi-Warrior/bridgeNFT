@@ -18,4 +18,13 @@ contract FromNFT is ERC721URIStorage, ERC721Burnable, Ownable {
         // not ERC721.tokenURI function.
         return super.tokenURI(tokenId);
     }
+
+    /**
+     * @dev Need for test. Will delete later.
+     */
+    function mint(address to, uint256 tokenId, string memory tokenUri) public onlyOwner {
+        _safeMint(to, tokenId);
+
+        _setTokenURI(tokenId, tokenUri);
+    }
 }
