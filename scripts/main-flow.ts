@@ -132,12 +132,15 @@ async function bridge(
     
     // (Step 1: Receive request).
 
-    // Step 2: 
+    // Step 2: Process request (including committing to FromBridge).
     await validator.processRequest(
         fromToken, fromBridge,
         toToken, toBridge,
         request
     );
+
+    /// PHASE 3: LISTEN TO COMMIT TRANSACTION
+    /// SIDE: OWNER (FRONTEND)
 
     return 0;
 }

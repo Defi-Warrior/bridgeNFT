@@ -1,5 +1,5 @@
 // Types
-import { BigNumberish, BytesLike, Signer } from "ethers";
+import { BigNumber, BigNumberish, BytesLike, Signer } from "ethers";
 import { FromNFT, IFromBridge, IToBridge, ToNFT } from "../typechain-types";
 
 // Libraries
@@ -43,15 +43,17 @@ export class Validator {
 
         const { id: { tokenOwner, tokenId, requestNonce }, ownerSignature } = request;
         
-        const secret: BytesLike = sodium.randombytes_buf(256);
-        const commitment: string = keccak256(secret);
-
-        this.secrets.set(request.id, secret);
-        
+        // Get token URI.
         fromToken.connect(this.signer);
         const tokenUri: string = await fromToken.tokenURI(tokenId);
-        const requestTimestamp: BigNumberish = Date.now();
 
+        // Generate commitment for this request.
+        const commitment: BytesLike = this._generateCommitment(request.id);
+
+        // Set requestTimestamp to current unix time.
+        const requestTimestamp: BigNumberish = this._unixTimeInSeconds();
+
+        // Sign validator signature.
         const validatorSignature: BytesLike = await ValidatorSignature.sign(
             this.signer,
             fromToken.address, fromBridge.address,
@@ -61,6 +63,7 @@ export class Validator {
             commitment, requestTimestamp
         );
 
+        // Send commit transaction.
         fromBridge.connect(this.signer);
         fromBridge.commit(
             tokenOwner,
@@ -127,5 +130,16 @@ export class Validator {
             ownerSignature
         ))
             throw("Invalid owner signature");
+    }
+
+    private _generateCommitment(requestId: BridgeRequestId): BytesLike {
+        const secret: BytesLike = sodium.randombytes_buf(256);
+        const commitment: BytesLike = keccak256(secret);
+        this.secrets.set(requestId, secret);
+        return commitment;
+    }
+
+    private _unixTimeInSeconds(): number {
+        return Math.floor(Date.now() / 1000);
     }
 }
