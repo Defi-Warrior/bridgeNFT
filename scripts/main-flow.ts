@@ -13,10 +13,10 @@ import {
     ToNFT, ToNFT__factory
 } from "../typechain-types";
 
-import Config from "./config.develop";
+import { deployConfig, ownerConfig, validatorConfig } from "./config.develop";
 import { Validator } from "./validator";
 import { TokenOwner } from "./token-owner";
-import { BridgeRequest, buildBridgeRequest } from "./dto/bridge-request";
+import { BridgeRequest, buildBridgeRequest } from "./types/dto/bridge-request";
 
 async function main() {
     const deployer = (await ethers.getSigners())[0];
@@ -24,7 +24,7 @@ async function main() {
 
     await initialize(deployer, fromToken, fromBridge, toToken, toBridge);
 
-    const validator: Validator = await Validator.instantiate( (await ethers.getSigners())[1] );
+    const validator: Validator = await Validator.instantiate( validatorConfig, (await ethers.getSigners())[1] );
     const tokenOwner: TokenOwner = new TokenOwner( (await ethers.getSigners())[2] );
 
     // Mint token on FromNFT for test
@@ -77,7 +77,7 @@ async function initialize(
         fromToken.address,
         toToken.address,
         toBridge.address,
-        Config.VALIDATOR_ADDRESS
+        deployConfig.ADDRESS_VALIDATOR
     );
 
     toToken.connect(contractOwner);
@@ -88,8 +88,8 @@ async function initialize(
         fromToken.address,
         fromBridge.address,
         toToken.address,
-        Config.VALIDATOR_ADDRESS,
-        Config.GLOBAL_WAITING_DURATION_FOR_OLD_TOKEN_TO_BE_PROCESSED
+        deployConfig.ADDRESS_VALIDATOR,
+        deployConfig.GLOBAL_WAITING_DURATION_FOR_OLD_TOKEN_TO_BE_PROCESSED
     );
 }
 
@@ -119,8 +119,11 @@ async function bridge(
         fromToken, fromBridge,
         toToken, toBridge,
         tokenId, requestNonce);
+
+    // Step 3a: Bind listener to commit event at FromBridge.
+    await tokenOwner.bindListenerToCommitEvent(fromBridge, tokenId, requestNonce);
         
-    // Step 3: Build request then send to validator.
+    // Step 3b: Build request then send to validator.
     const request: BridgeRequest = buildBridgeRequest(
         await tokenOwner.address(),
         tokenId, requestNonce,
@@ -141,6 +144,7 @@ async function bridge(
 
     /// PHASE 3: LISTEN TO COMMIT TRANSACTION
     /// SIDE: OWNER (FRONTEND)
+    
 
     return 0;
 }

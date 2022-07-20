@@ -1,6 +1,7 @@
-import { BigNumberish, BytesLike, Signer } from "ethers";
+import { BigNumberish, BytesLike, EventFilter, Signer, utils } from "ethers";
 import { FromNFT, IFromBridge, IToBridge, ToNFT } from "../typechain-types";
 
+import OwnerConfig from "./types/config/owner-config";
 import { OwnerSignature } from "./utils/owner-signature";
 
 export class TokenOwner {
@@ -45,5 +46,19 @@ export class TokenOwner {
             toToken.address, toBridge.address,
             tokenId, requestNonce
         );
+    }
+
+    public async bindListenerToCommitEvent(
+        fromBridge: IFromBridge,
+        tokenId: BigNumberish, requestNonce: BigNumberish
+    ) {
+        // const filter: EventFilter = {
+        //     address: fromBridge.address,
+        //     topics: [
+        //         utils.id("Commit(address,uint256,uint256,bytes32,uint256,bytes)"),
+        //         await this.address(),
+        //         tokenId, requestNonce
+        //     ]
+        // };
     }
 }

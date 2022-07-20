@@ -1,5 +1,5 @@
 // Types
-import { BigNumber, BigNumberish, BytesLike, Signer } from "ethers";
+import { BigNumberish, BytesLike, Signer } from "ethers";
 import { FromNFT, IFromBridge, IToBridge, ToNFT } from "../typechain-types";
 
 // Libraries
@@ -7,23 +7,26 @@ import { keccak256 } from "ethers/lib/utils";
 import sodium from "libsodium-wrappers";
 
 // Project's modules
-import { BridgeRequest, BridgeRequestId } from "./dto/bridge-request";
+import ValidatorConfig from "./types/config/validator-config";
+import { BridgeRequest, BridgeRequestId } from "./types/dto/bridge-request";
 import { OwnerSignature } from "./utils/owner-signature";
 import { ValidatorSignature } from "./utils/validator-signature";
 
 export class Validator {
+    private config: ValidatorConfig;
     private signer: Signer;
 
     private secrets: Map<BridgeRequestId, BytesLike>;
 
-    private constructor(signer: Signer) {
+    private constructor(config: ValidatorConfig, signer: Signer) {
+        this.config = config;
         this.signer = signer;
         this.secrets = new Map<BridgeRequestId, BytesLike>();
     }
 
-    public static async instantiate(signer: Signer): Promise<Validator> {
+    public static async instantiate(config: ValidatorConfig, signer: Signer): Promise<Validator> {
         await sodium.ready;
-        return new Validator(signer);
+        return new Validator(config, signer);
     }
 
     public async address(): Promise<string> {
