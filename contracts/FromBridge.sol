@@ -57,6 +57,7 @@ contract FromBridge is IFromBridge, Ownable, Initializable {
     event Commit(
         address indexed tokenOwner,
         uint256 indexed tokenId,
+        uint256 indexed requestNonce,
         bytes32         commitment,
         uint256         requestTimestamp,
         bytes           validatorSignature);
@@ -184,7 +185,7 @@ contract FromBridge is IFromBridge, Ownable, Initializable {
         _updateNonce(tokenOwner, tokenId);
 
         // Emit event for owner (frontend) to retrieve commitment, timestamp and signature.
-        emit Commit(tokenOwner, tokenId, commitment, requestTimestamp, validatorSignature);
+        emit Commit(tokenOwner, tokenId, requestNonce, commitment, requestTimestamp, validatorSignature);
     }
 
     /**
