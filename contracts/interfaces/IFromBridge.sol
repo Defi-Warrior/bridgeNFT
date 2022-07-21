@@ -2,6 +2,15 @@
 pragma solidity ^0.8.0;
 
 interface IFromBridge {
+
+    event Commit(
+        address indexed tokenOwner,
+        uint256 indexed tokenId,
+        uint256 indexed requestNonce,
+        bytes32         commitment,
+        uint256         requestTimestamp,
+        bytes           validatorSignature);
+        
     /**
      * @dev There are two cases that this function is called.
      * 1. Users call before requesting the validator for token bridging.

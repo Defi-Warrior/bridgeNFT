@@ -2,6 +2,17 @@
 pragma solidity ^0.8.0;
 
 interface IToBridge {
+
+    event Acquire(
+        address indexed acquirer,
+        uint256 indexed oldTokenId,
+        uint256         newTokenId,
+        string          tokenUri,
+        bytes32 indexed commitment,
+        uint256         requestTimestamp,
+        uint256         waitingDurationForOldTokenToBeProcessed,
+        uint256         acquirementTimestamp);
+        
     /**
      * @dev This function is called by users to get new token corresponding to the old one.
      * @param tokenOwner The owner of the old token.

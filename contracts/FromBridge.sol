@@ -54,14 +54,6 @@ contract FromBridge is IFromBridge, Ownable, Initializable {
      */
     mapping(address => mapping(uint256 => uint256)) internal _requestNonces;
 
-    event Commit(
-        address indexed tokenOwner,
-        uint256 indexed tokenId,
-        uint256 indexed requestNonce,
-        bytes32         commitment,
-        uint256         requestTimestamp,
-        bytes           validatorSignature);
-
     modifier onlyInitialized(string memory contractName) {
         require(_initialized,
             string(abi.encodePacked(contractName, ": Contract is not initialized")));

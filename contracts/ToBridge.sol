@@ -71,16 +71,6 @@ contract ToBridge is IToBridge, Ownable, Initializable, ReentrancyGuard {
      */
     mapping(bytes32 => AcquirementDetail) private _acquirements;
 
-    event Acquire(
-        address indexed acquirer,
-        uint256 indexed oldTokenId,
-        uint256         newTokenId,
-        string          tokenUri,
-        bytes32 indexed commitment,
-        uint256         requestTimestamp,
-        uint256         waitingDurationForOldTokenToBeProcessed,
-        uint256         acquirementTimestamp);
-
     modifier onlyInitialized(string memory contractName) {
         require(_initialized,
             string(abi.encodePacked(contractName, ": Contract is not initialized")));

@@ -2,6 +2,41 @@
 pragma solidity ^0.8.0;
 
 interface IClaim {
+
+    event Claim(
+        address indexed claimer,
+        uint256 indexed tokenId,
+        string          tokenUri,
+        bytes32 indexed commitment,
+        uint256         requestTimestamp,
+        uint256         waitingDurationForOldTokenToBeProcessed,
+        uint256         claimTimestamp,
+        uint256         waitingDurationToAcquireByClaim,
+        uint256         escrow);
+
+    event AcquireByClaim(
+        address indexed acquirer,
+        uint256 indexed oldTokenId,
+        uint256         newTokenId,
+        string          tokenUri,
+        bytes32 indexed commitment,
+        uint256         requestTimestamp,
+        uint256         waitingDurationForOldTokenToBeProcessed,
+        uint256         claimTimestamp,
+        uint256         waitingDurationToAcquireByClaim,
+        uint256         acquirementTimestamp);
+
+    event Deny(
+        address indexed claimer,
+        uint256 indexed tokenId,
+        string          tokenUri,
+        bytes32 indexed commitment,
+        uint256         requestTimestamp,
+        uint256         waitingDurationForOldTokenToBeProcessed,
+        uint256         claimTimestamp,
+        uint256         denialTimestamp,
+        uint256         waitingDurationToAcquireByClaim);
+        
     /**
      * @return The current global time duration the token owner needs to wait in order to
      * acquire by claim, starting from claim's timestamp determined by ToBridge.
