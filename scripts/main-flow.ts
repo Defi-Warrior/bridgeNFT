@@ -36,6 +36,7 @@ async function main() {
     const newTokenId = await bridge(fromToken, fromBridge, toToken, toBridge, validator, tokenOwner, tokenId);
 
     // Test if bridge succeeded
+    console.log("Bridge success:");
     console.log(toToken.ownerOf(newTokenId) === tokenOwner.address());
 }
 
@@ -109,8 +110,10 @@ async function bridge(
     // tokenOwner.approve(fromToken, fromBridge, tokenId);
         
     // Step 1b: Get request nonce from FromBridge.
+    console.log(0);
     const requestNonce: BigNumberish = await tokenOwner.getRequestNonce(fromBridge, tokenId);
-
+    console.log(0);
+    
     // Step 1c: Ask validator authentication challenge.
 
 
@@ -121,8 +124,7 @@ async function bridge(
         tokenId, requestNonce);
 
     // Step 3a: Bind listener to commit event at FromBridge.
-
-    tokenOwner.bindListenerToCommitEvent(fromBridge, tokenId, requestNonce);
+    tokenOwner.bindListenerToCommitEvent(fromToken, fromBridge, toBridge, tokenId, requestNonce, validator);
         
     // Step 3b: Build request then send to validator.
     const request: BridgeRequest = buildBridgeRequest(
@@ -145,23 +147,23 @@ async function bridge(
 
     /// PHASE 3: LISTEN TO COMMIT TRANSACTION -> ASK FOR SECRET -> ACQUIRE NEW TOKEN
     /// SIDE: OWNER (FRONTEND)
-    // Step 1: Listen to commit transaction.
-    const tokenUri;
-    const commitment;
-    const requestTimestamp;
-    const validatorSignature;
+    // // Step 1: Listen to commit transaction.
+    // const tokenUri;
+    // const commitment;
+    // const requestTimestamp;
+    // const validatorSignature;
 
-    // Step 2: Ask validator for secret.
-    const secret;
+    // // Step 2: Ask validator for secret.
+    // const secret;
 
-    // Step 3: Acquire new token.
-    toBridge.acquire(
-        await tokenOwner.address(),
-        tokenId, tokenUri,
-        commitment, secret,
-        requestTimestamp,
-        validatorSignature
-    )
+    // // Step 3: Acquire new token.
+    // toBridge.acquire(
+    //     await tokenOwner.address(),
+    //     tokenId, tokenUri,
+    //     commitment, secret,
+    //     requestTimestamp,
+    //     validatorSignature
+    // )
 
     return 0;
 }
