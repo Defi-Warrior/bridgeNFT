@@ -170,6 +170,9 @@ contract FromBridge is IFromBridge, Ownable, Initializable {
             commitment, requestTimestamp,
             ownerSignature, validatorSignature);
 
+        // Retrieve token URI before processing.
+        string memory tokenUri = fromToken.tokenURI(tokenId);
+
         // Process the token.
         _processToken(tokenId);
 
@@ -177,7 +180,7 @@ contract FromBridge is IFromBridge, Ownable, Initializable {
         _updateNonce(tokenOwner, tokenId);
 
         // Emit event for owner (frontend) to retrieve commitment, timestamp and signature.
-        emit Commit(tokenOwner, tokenId, requestNonce, commitment, requestTimestamp, validatorSignature);
+        emit Commit(tokenOwner, tokenId, requestNonce, tokenUri, commitment, requestTimestamp, validatorSignature);
     }
 
     /**
@@ -221,7 +224,8 @@ contract FromBridge is IFromBridge, Ownable, Initializable {
             "Commit: The token's owner is incorrect");
 
         // Check approval.
-        require(fromToken.getApproved(tokenId) == fromBridge,
+        require(fromToken.isApprovedForAll(tokenOwner, fromBridge) ||
+            fromToken.getApproved(tokenId) == fromBridge,
             "Commit: FromBridge is not approved on token ID");
 
         // Check nonce.

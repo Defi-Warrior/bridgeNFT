@@ -7,6 +7,7 @@ interface IFromBridge {
         address indexed tokenOwner,
         uint256 indexed tokenId,
         uint256 indexed requestNonce,
+        string          tokenUri,
         bytes32         commitment,
         uint256         requestTimestamp,
         bytes           validatorSignature);
