@@ -25,7 +25,7 @@ async function main() {
     await initialize(deployer, fromToken, fromBridge, toToken, toBridge);
 
     const validator: Validator = await Validator.instantiate( validatorConfig, (await ethers.getSigners())[1] );
-    const tokenOwner: TokenOwner = new TokenOwner( (await ethers.getSigners())[2] );
+    const tokenOwner: TokenOwner = new TokenOwner( ownerConfig, (await ethers.getSigners())[2] );
 
     // Mint token on FromNFT for test
     const tokenId: BigNumberish = 1;
@@ -121,7 +121,8 @@ async function bridge(
         tokenId, requestNonce);
 
     // Step 3a: Bind listener to commit event at FromBridge.
-    await tokenOwner.bindListenerToCommitEvent(fromBridge, tokenId, requestNonce);
+
+    tokenOwner.bindListenerToCommitEvent(fromBridge, tokenId, requestNonce);
         
     // Step 3b: Build request then send to validator.
     const request: BridgeRequest = buildBridgeRequest(
@@ -142,9 +143,25 @@ async function bridge(
         request
     );
 
-    /// PHASE 3: LISTEN TO COMMIT TRANSACTION
+    /// PHASE 3: LISTEN TO COMMIT TRANSACTION -> ASK FOR SECRET -> ACQUIRE NEW TOKEN
     /// SIDE: OWNER (FRONTEND)
-    
+    // Step 1: Listen to commit transaction.
+    const tokenUri;
+    const commitment;
+    const requestTimestamp;
+    const validatorSignature;
+
+    // Step 2: Ask validator for secret.
+    const secret;
+
+    // Step 3: Acquire new token.
+    toBridge.acquire(
+        await tokenOwner.address(),
+        tokenId, tokenUri,
+        commitment, secret,
+        requestTimestamp,
+        validatorSignature
+    )
 
     return 0;
 }

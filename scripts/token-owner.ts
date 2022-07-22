@@ -1,13 +1,17 @@
-import { BigNumberish, BytesLike, EventFilter, Signer, utils } from "ethers";
+import { BigNumberish, BytesLike, Signer } from "ethers";
 import { FromNFT, IFromBridge, IToBridge, ToNFT } from "../typechain-types";
+import { TypedEventFilter, TypedListener } from "../typechain-types/common";
+import { CommitEvent } from "../typechain-types/contracts/interfaces/IFromBridge";
 
 import OwnerConfig from "./types/config/owner-config";
 import { OwnerSignature } from "./utils/owner-signature";
 
 export class TokenOwner {
+    private config: OwnerConfig;
     private signer: Signer;
 
-    constructor(signer: Signer) {
+    constructor(config: OwnerConfig, signer: Signer) {
+        this.config = config;
         this.signer = signer;
     }
 
@@ -48,17 +52,25 @@ export class TokenOwner {
         );
     }
 
-    public async bindListenerToCommitEvent(
+    public bindListenerToCommitEvent(
         fromBridge: IFromBridge,
         tokenId: BigNumberish, requestNonce: BigNumberish
     ) {
-        // const filter: EventFilter = {
-        //     address: fromBridge.address,
-        //     topics: [
-        //         utils.id("Commit(address,uint256,uint256,bytes32,uint256,bytes)"),
-        //         await this.address(),
-        //         tokenId, requestNonce
-        //     ]
-        // };
+        const filter: TypedEventFilter<CommitEvent> = fromBridge.filters.Commit(
+            this.address(),
+            tokenId,
+            requestNonce);
+        
+        const listener: TypedListener<CommitEvent> =
+            (tokenOwner,
+            tokenId, requestNonce,
+            commitment, requestTimestamp,
+            validatorSignature,
+            event) => {
+                
+            };
+        
+        fromBridge.connect(this.signer);
+        fromBridge.once(filter, listener);
     }
 }

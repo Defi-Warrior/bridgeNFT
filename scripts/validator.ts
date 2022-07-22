@@ -1,6 +1,8 @@
 // Types
 import { BigNumberish, BytesLike, Signer } from "ethers";
+import { TypedEventFilter } from "../typechain-types/common";
 import { FromNFT, IFromBridge, IToBridge, ToNFT } from "../typechain-types";
+import { CommitEvent } from "../typechain-types/contracts/interfaces/IFromBridge";
 
 // Libraries
 import { keccak256 } from "ethers/lib/utils";
@@ -140,6 +142,43 @@ export class Validator {
         const commitment: BytesLike = keccak256(secret);
         this.secrets.set(requestId, secret);
         return commitment;
+    }
+
+    public async revealSecret(fromBridge: IFromBridge, requestId: BridgeRequestId): Promise<BytesLike> {
+        await this._checkCommitTxFinalized(fromBridge, requestId);
+
+        const secret = this.secrets.get(requestId);
+        if (secret === undefined) {
+            throw("Request has not yet been processed");
+        }
+        return secret;
+    }
+
+    private async _checkCommitTxFinalized(fromBridge: IFromBridge, requestId: BridgeRequestId) {
+        const filter: TypedEventFilter<CommitEvent> = fromBridge.filters.Commit(
+            requestId.tokenOwner,
+            requestId.tokenId,
+            requestId.requestNonce);
+        
+        fromBridge.connect(this.signer);
+        const events: CommitEvent[] = await fromBridge.queryFilter(filter);
+
+        if (events.length == 0) {
+            throw("Commit transaction for this request does not exist or has not yet been mined")
+        }
+        const event: CommitEvent = events[events.length - 1];
+
+        if (await this._newestBlockNumber() < event.blockNumber + this.config.NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION) {
+            throw("Commit transaction is not finalized yet")
+        }
+    }
+
+    private async _newestBlockNumber(): Promise<number> {
+        const provider = this.signer.provider;
+        if (provider === undefined) {
+            throw("Signer is not connected to any provider");
+        }
+        return provider.getBlockNumber();
     }
 
     private _unixTimeInSeconds(): number {
