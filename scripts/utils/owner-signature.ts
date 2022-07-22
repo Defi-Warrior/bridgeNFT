@@ -1,4 +1,4 @@
-import { BigNumber, BigNumberish, Bytes, BytesLike, Signer, utils } from "ethers";
+import { BigNumber, Bytes, BytesLike, Signer, utils } from "ethers";
 
 export class OwnerSignature {
 
@@ -6,7 +6,7 @@ export class OwnerSignature {
         ownerSigner: Signer,
         fromTokenAddr: string, fromBridgeAddr: string,
         toTokenAddr: string, toBridgeAddr: string,
-        tokenId: BigNumberish, requestNonce: BigNumberish
+        tokenId: BigNumber, requestNonce: BigNumber
     ): Promise<BytesLike> {
         const message: Bytes = utils.concat([
             utils.toUtf8Bytes("RequestBridge"),
@@ -27,7 +27,7 @@ export class OwnerSignature {
         ownerAddr: string,
         fromTokenAddr: string, fromBridgeAddr: string,
         toTokenAddr: string, toBridgeAddr: string,
-        tokenId: BigNumberish, requestNonce: BigNumberish,
+        tokenId: BigNumber, requestNonce: BigNumber,
         signature: BytesLike
     ): Promise<boolean> {
         const message: Bytes = utils.concat([

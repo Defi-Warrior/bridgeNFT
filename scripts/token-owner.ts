@@ -1,4 +1,4 @@
-import { BigNumberish, BytesLike, Signer } from "ethers";
+import { BigNumber, BytesLike, Signer } from "ethers";
 import { FromNFT, IFromBridge, IToBridge, ToNFT } from "../typechain-types";
 import { TypedEventFilter, TypedListener } from "../typechain-types/common";
 import { CommitEvent } from "../typechain-types/contracts/interfaces/IFromBridge";
@@ -22,29 +22,28 @@ export class TokenOwner {
     }
 
     public async approveForAll(fromToken: FromNFT, fromBridge: IFromBridge) {
-        fromToken.connect(this.signer);
-        if (! await fromToken.isApprovedForAll(this.address(), fromBridge.address)) {
-            fromToken.setApprovalForAll(fromBridge.address, true);
+        const fromToken_: FromNFT = fromToken.connect(this.signer);
+        if (! await fromToken_.isApprovedForAll(await this.address(), fromBridge.address)) {
+            fromToken_.setApprovalForAll(fromBridge.address, true);
         }
     }
 
-    public async approve(fromToken: FromNFT, fromBridge: IFromBridge, tokenId: BigNumberish) {
-        fromToken.connect(this.signer);
-        if (!  (await fromToken.isApprovedForAll(this.address(), fromBridge.address) ||
-                await fromToken.getApproved(tokenId) === fromBridge.address) ) {
-            fromToken.approve(fromBridge.address, tokenId);
+    public async approve(fromToken: FromNFT, fromBridge: IFromBridge, tokenId: BigNumber) {
+        const fromToken_: FromNFT = fromToken.connect(this.signer);
+        if (!  (await fromToken_.isApprovedForAll(await this.address(), fromBridge.address) ||
+                await fromToken_.getApproved(tokenId) === fromBridge.address) ) {
+            fromToken_.approve(fromBridge.address, tokenId);
         }
     }
 
-    public async getRequestNonce(fromBridge: IFromBridge, tokenId: BigNumberish): Promise<BigNumberish> {
-        fromBridge.connect(this.signer);
-        return fromBridge.getRequestNonce(tokenId);
+    public async getRequestNonce(fromBridge: IFromBridge, tokenId: BigNumber): Promise<BigNumber> {
+        return fromBridge.connect(this.signer).getRequestNonce(tokenId);
     }
     
     public async signRequest(
         fromToken: FromNFT, fromBridge: IFromBridge,
         toToken: ToNFT, toBridge: IToBridge,
-        tokenId: BigNumberish, requestNonce: BigNumberish
+        tokenId: BigNumber, requestNonce: BigNumber
     ): Promise<BytesLike> {
         return OwnerSignature.sign(
             this.signer,
@@ -54,27 +53,25 @@ export class TokenOwner {
         );
     }
 
-    public bindListenerToCommitEvent(
+    public async bindListenerToCommitEvent(
         fromToken: FromNFT, fromBridge: IFromBridge,
         toBridge: IToBridge,
-        tokenId: BigNumberish, requestNonce: BigNumberish,
+        tokenId: BigNumber, requestNonce: BigNumber,
         validator: Validator
     ) {
         const filter: TypedEventFilter<CommitEvent> = fromBridge.filters.Commit(
-            this.address(),
+            await this.address(),
             tokenId,
             requestNonce);
         
         const listener: TypedListener<CommitEvent> = async (
             tokenOwner,
             tokenId, requestNonce,
+            tokenUri,
             commitment, requestTimestamp,
             validatorSignature,
             event
         ) => {
-            fromToken.connect(this.signer);
-            const tokenUri: string = await fromToken.tokenURI(tokenId);
-
             // Ask validator for secret.
             const requestid: BridgeRequestId = {
                 tokenOwner: tokenOwner,
@@ -85,17 +82,16 @@ export class TokenOwner {
             const secret: BytesLike = await validator.revealSecret(fromBridge, requestid);
 
             // Acquire new token.
-            toBridge.acquire(
-                this.address(),
+            await toBridge.connect(this.signer).acquire(
+                await this.address(),
                 tokenId, tokenUri,
                 commitment, secret,
                 requestTimestamp,
                 validatorSignature
-            )
+            );
         };
         
-        fromBridge.connect(this.signer);
-        fromBridge.once(filter, listener);
+        fromBridge.connect(this.signer).once(filter, listener);
     }
 
     private async _isCommitTxFinalized(fromBridge: IFromBridge, requestId: BridgeRequestId): Promise<boolean> {
@@ -104,8 +100,7 @@ export class TokenOwner {
             requestId.tokenId,
             requestId.requestNonce);
         
-        fromBridge.connect(this.signer);
-        const events: CommitEvent[] = await fromBridge.queryFilter(filter);
+        const events: CommitEvent[] = await fromBridge.connect(this.signer).queryFilter(filter);
 
         if (events.length == 0) {
             throw("Commit transaction for this request does not exist or has not yet been mined")

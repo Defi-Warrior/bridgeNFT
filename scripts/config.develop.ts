@@ -9,9 +9,9 @@ export const deployConfig: DeployConfig = {
 };
 
 export const validatorConfig: ValidatorConfig = {
-    "NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION": 6
+    "NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION": 0
 };
 
 export const ownerConfig: OwnerConfig = {
-    "NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION": 6
+    "NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION": 0
 };

@@ -1,27 +1,34 @@
-import { BigNumberish, BytesLike } from "ethers";
+import { BigNumber, BytesLike } from "ethers";
 
-export type BridgeRequestId = {
+export class BridgeRequestId {
     readonly tokenOwner: string;
-    readonly tokenId: BigNumberish;
-    readonly requestNonce: BigNumberish;
+    readonly tokenId: BigNumber;
+    readonly requestNonce: BigNumber;
+
+    public constructor(
+        tokenOwner: string,
+        tokenId: BigNumber, requestNonce: BigNumber
+    ) {
+        this.tokenOwner = tokenOwner;
+        this.tokenId = tokenId;
+        this.requestNonce = requestNonce;
+    }
 }
 
-export type BridgeRequest = {
-    readonly id: BridgeRequestId;
-    readonly ownerSignature: BytesLike;
-}
-
-export function buildBridgeRequest(
-    tokenOwner: string,
-    tokenId: BigNumberish, requestNonce: BigNumberish,
-    ownerSignature: BytesLike
-): BridgeRequest {
-    return {
-        id: {
+export class BridgeRequest {
+    public readonly id: BridgeRequestId;
+    public readonly ownerSignature: BytesLike;
+    
+    public constructor(
+        tokenOwner: string,
+        tokenId: BigNumber, requestNonce: BigNumber,
+        ownerSignature: BytesLike
+    ) {
+        this.id = {
             tokenOwner: tokenOwner,
             tokenId: tokenId,
             requestNonce: requestNonce
-        },
-        ownerSignature: ownerSignature
-    };
+        };
+        this.ownerSignature = ownerSignature;
+    }
 }

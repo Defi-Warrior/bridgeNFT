@@ -1,4 +1,4 @@
-import { BigNumber, BigNumberish, Bytes, BytesLike, Signer, utils } from "ethers";
+import { BigNumber, Bytes, BytesLike, Signer, utils } from "ethers";
 
 export class ValidatorSignature {
 
@@ -6,9 +6,9 @@ export class ValidatorSignature {
         validatorSigner: Signer,
         fromTokenAddr: string, fromBridgeAddr: string,
         toTokenAddr: string, toBridgeAddr: string,
-        tokenOwner: string, tokenId: BigNumberish,
+        tokenOwner: string, tokenId: BigNumber,
         tokenUri: string,
-        commitment: BytesLike, requestTimestamp: BigNumberish,
+        commitment: BytesLike, requestTimestamp: BigNumber,
     ): Promise<BytesLike> {
         const message: Bytes = utils.concat([
             utils.toUtf8Bytes("Commit"),
@@ -32,9 +32,9 @@ export class ValidatorSignature {
         validatorAddr: string,
         fromTokenAddr: string, fromBridgeAddr: string,
         toTokenAddr: string, toBridgeAddr: string,
-        tokenOwner: string, tokenId: BigNumberish,
+        tokenOwner: string, tokenId: BigNumber,
         tokenUri: string,
-        commitment: BytesLike, requestTimestamp: BigNumberish,
+        commitment: BytesLike, requestTimestamp: BigNumber,
         signature: BytesLike
     ): Promise<boolean> {
         const message: Bytes = utils.concat([

@@ -1,97 +1,55 @@
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { BigNumberish, BytesLike } from "ethers";
+import { BigNumber, BytesLike } from "ethers";
 
 import {
-    FromBridge,
-    FromBridge__factory,
-    FromNFT, FromNFT__factory,
+    FromNFT,
+    ToNFT,
     IFromBridge,
-    IToBridge,
-    ToBridge,
-    ToBridge__factory,
-    ToNFT, ToNFT__factory
+    IToBridge
 } from "../typechain-types";
 
 import { deployConfig, ownerConfig, validatorConfig } from "./config.develop";
 import { Validator } from "./validator";
 import { TokenOwner } from "./token-owner";
-import { BridgeRequest, buildBridgeRequest } from "./types/dto/bridge-request";
+import { BridgeRequest } from "./types/dto/bridge-request";
+import { deploy, initialize } from "./deploy";
+import { TypedEventFilter } from "../typechain-types/common";
+import { AcquireEvent } from "../typechain-types/contracts/interfaces/IToBridge";
 
 async function main() {
-    const deployer = (await ethers.getSigners())[0];
+    const deployer: SignerWithAddress = (await ethers.getSigners())[0];
     const { fromToken, fromBridge, toToken, toBridge } = await deploy(deployer);
 
-    await initialize(deployer, fromToken, fromBridge, toToken, toBridge);
+    await initialize(deployConfig, deployer, fromToken, fromBridge, toToken, toBridge);
 
     const validator: Validator = await Validator.instantiate( validatorConfig, (await ethers.getSigners())[1] );
     const tokenOwner: TokenOwner = new TokenOwner( ownerConfig, (await ethers.getSigners())[2] );
 
     // Mint token on FromNFT for test
-    const tokenId: BigNumberish = 1;
+    const tokenId: BigNumber = BigNumber.from(1);
     const tokenUri: string = "abc";
     fromToken.connect(deployer);
     await fromToken.mint(tokenOwner.address(), tokenId, tokenUri);
 
-    const newTokenId = await bridge(fromToken, fromBridge, toToken, toBridge, validator, tokenOwner, tokenId);
-
+    await bridge(fromToken, fromBridge, toToken, toBridge, validator, tokenOwner, tokenId);
+    
     // Test if bridge succeeded
-    console.log("Bridge success:");
-    console.log(toToken.ownerOf(newTokenId) === tokenOwner.address());
-}
-
-async function deploy(deployer: SignerWithAddress):
-        Promise<{   fromToken: FromNFT, fromBridge: FromBridge,
-                    toToken: ToNFT, toBridge: ToBridge }> {
-
-    const fromNFT_factory: FromNFT__factory = await ethers.getContractFactory("FromNFT", deployer);
-    const fromToken: FromNFT = await fromNFT_factory.deploy();
-    await fromToken.deployed();
-
-    const fromBridge_factory: FromBridge__factory = await ethers.getContractFactory("FromBridge", deployer);
-    const fromBridge: FromBridge = await fromBridge_factory.deploy();
-    await fromBridge.deployed();
-
-    const toNFT_factory: ToNFT__factory = await ethers.getContractFactory("ToNFT", deployer);
-    const toToken: ToNFT = await toNFT_factory.deploy();
-    await toToken.deployed();
-
-    const toBridge_factory: ToBridge__factory = await ethers.getContractFactory("ToBridge", deployer);
-    const toBridge: ToBridge = await toBridge_factory.deploy();
-    await toBridge.deployed();
-
-    return {
-        fromToken: fromToken,
-        fromBridge: fromBridge,
-        toToken: toToken,
-        toBridge: toBridge
-    };
-}
-
-async function initialize(
-    contractOwner: SignerWithAddress,
-    fromToken: FromNFT, fromBridge: FromBridge,
-    toToken: ToNFT, toBridge: ToBridge,
-) {
-    fromBridge.connect(contractOwner);
-    fromBridge.initialize(
-        fromToken.address,
-        toToken.address,
-        toBridge.address,
-        deployConfig.ADDRESS_VALIDATOR
-    );
-
-    toToken.connect(contractOwner);
-    toToken.setToBridge(toBridge.address);
-
-    toBridge.connect(contractOwner);
-    toBridge.initialize(
-        fromToken.address,
-        fromBridge.address,
-        toToken.address,
-        deployConfig.ADDRESS_VALIDATOR,
-        deployConfig.GLOBAL_WAITING_DURATION_FOR_OLD_TOKEN_TO_BE_PROCESSED
-    );
+    const filter: TypedEventFilter<AcquireEvent> = toBridge.filters.Acquire(await tokenOwner.address(), tokenId);
+    toBridge.once(filter, async (
+        acquirer,
+        oldTokenId,
+        newTokenId,
+        tokenUri,
+        commitment,
+        requestTimestamp,
+        waitingDurationForOldTokenToBeProcessed,
+        acquirementTimestamp,
+        event
+    ) => {
+        console.log("Bridge success:");
+        console.log(await toToken.ownerOf(newTokenId) === await tokenOwner.address());
+    });
 }
 
 async function bridge(
@@ -99,8 +57,8 @@ async function bridge(
     toToken: ToNFT, toBridge: IToBridge,
     validator: Validator,
     tokenOwner: TokenOwner,
-    tokenId: BigNumberish
-): Promise<BigNumberish> {
+    tokenId: BigNumber
+) {
     /// PHASE 1: CREATE REQUEST
     /// SIDE: OWNER (FRONTEND)
 
@@ -110,9 +68,7 @@ async function bridge(
     // tokenOwner.approve(fromToken, fromBridge, tokenId);
         
     // Step 1b: Get request nonce from FromBridge.
-    console.log(0);
-    const requestNonce: BigNumberish = await tokenOwner.getRequestNonce(fromBridge, tokenId);
-    console.log(0);
+    const requestNonce: BigNumber = await tokenOwner.getRequestNonce(fromBridge, tokenId);
     
     // Step 1c: Ask validator authentication challenge.
 
@@ -122,12 +78,12 @@ async function bridge(
         fromToken, fromBridge,
         toToken, toBridge,
         tokenId, requestNonce);
-
+    
     // Step 3a: Bind listener to commit event at FromBridge.
     tokenOwner.bindListenerToCommitEvent(fromToken, fromBridge, toBridge, tokenId, requestNonce, validator);
         
     // Step 3b: Build request then send to validator.
-    const request: BridgeRequest = buildBridgeRequest(
+    const request: BridgeRequest = new BridgeRequest(
         await tokenOwner.address(),
         tokenId, requestNonce,
         ownerSignature
@@ -164,8 +120,6 @@ async function bridge(
     //     requestTimestamp,
     //     validatorSignature
     // )
-
-    return 0;
 }
 
 main();

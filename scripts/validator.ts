@@ -1,5 +1,5 @@
 // Types
-import { BigNumberish, BytesLike, Signer } from "ethers";
+import { BigNumber, BytesLike, Signer, utils } from "ethers";
 import { TypedEventFilter } from "../typechain-types/common";
 import { FromNFT, IFromBridge, IToBridge, ToNFT } from "../typechain-types";
 import { CommitEvent } from "../typechain-types/contracts/interfaces/IFromBridge";
@@ -18,12 +18,12 @@ export class Validator {
     private config: ValidatorConfig;
     private signer: Signer;
 
-    private secrets: Map<BridgeRequestId, BytesLike>;
+    private commitKey: Uint8Array;
 
     private constructor(config: ValidatorConfig, signer: Signer) {
         this.config = config;
         this.signer = signer;
-        this.secrets = new Map<BridgeRequestId, BytesLike>();
+        this.commitKey = sodium.crypto_auth_keygen();
     }
 
     public static async instantiate(config: ValidatorConfig, signer: Signer): Promise<Validator> {
@@ -49,14 +49,13 @@ export class Validator {
         const { id: { tokenOwner, tokenId, requestNonce }, ownerSignature } = request;
         
         // Get token URI.
-        fromToken.connect(this.signer);
-        const tokenUri: string = await fromToken.tokenURI(tokenId);
+        const tokenUri: string = await fromToken.connect(this.signer).tokenURI(tokenId);
 
         // Generate commitment for this request.
         const commitment: BytesLike = this._generateCommitment(request.id);
 
         // Set requestTimestamp to current unix time.
-        const requestTimestamp: BigNumberish = this._unixTimeInSeconds();
+        const requestTimestamp: BigNumber = this._unixTimeInSeconds();
 
         // Sign validator signature.
         const validatorSignature: BytesLike = await ValidatorSignature.sign(
@@ -69,8 +68,7 @@ export class Validator {
         );
 
         // Send commit transaction.
-        fromBridge.connect(this.signer);
-        fromBridge.commit(
+        await fromBridge.connect(this.signer).commit(
             tokenOwner,
             tokenId, requestNonce,
             commitment, requestTimestamp,
@@ -97,20 +95,19 @@ export class Validator {
         );
         
         // Check owner.
-        fromToken.connect(this.signer);
-        if (await fromToken.ownerOf(tokenId) !== tokenOwner) {
+        const fromToken_: FromNFT = fromToken.connect(this.signer);
+        if (await fromToken_.ownerOf(tokenId) !== tokenOwner) {
             throw("Requester is not token owner");
         }
 
         // Check approval.
-        if (!  (await fromToken.isApprovedForAll(this.address(), fromBridge.address) ||
-                await fromToken.getApproved(tokenId) === fromBridge.address) ) {
+        if (!  (await fromToken_.isApprovedForAll(tokenOwner, fromBridge.address) ||
+                await fromToken_.getApproved(tokenId) === fromBridge.address) ) {
             throw("FromBridge is not approved on token");
         }
 
         // Check request nonce.
-        fromBridge.connect(this.signer);
-        if (await fromBridge.getRequestNonce(tokenId) !== requestNonce) {
+        if (! (await fromBridge.connect(this.signer).getRequestNonce(tokenId)).eq(requestNonce) ) {
             throw("Invalid request nonce");
         }
     }
@@ -119,7 +116,7 @@ export class Validator {
         tokenOwner: string,
         fromTokenAddr: string, fromBridgeAddr: string,
         toTokenAddr: string, toBridgeAddr: string,
-        tokenId: BigNumberish, requestNonce: BigNumberish,
+        tokenId: BigNumber, requestNonce: BigNumber,
         ownerSignature: BytesLike
     ) {
         // Check timestamp.
@@ -138,19 +135,14 @@ export class Validator {
     }
 
     private _generateCommitment(requestId: BridgeRequestId): BytesLike {
-        const secret: BytesLike = sodium.randombytes_buf(256);
+        const secret: Uint8Array = sodium.crypto_auth(this._requestIdToString(requestId), this.commitKey);
         const commitment: BytesLike = keccak256(secret);
-        this.secrets.set(requestId, secret);
         return commitment;
     }
 
     public async revealSecret(fromBridge: IFromBridge, requestId: BridgeRequestId): Promise<BytesLike> {
         await this._checkCommitTxFinalized(fromBridge, requestId);
-
-        const secret = this.secrets.get(requestId);
-        if (secret === undefined) {
-            throw("Request has not yet been processed");
-        }
+        const secret: Uint8Array = sodium.crypto_auth(this._requestIdToString(requestId), this.commitKey);
         return secret;
     }
 
@@ -160,8 +152,7 @@ export class Validator {
             requestId.tokenId,
             requestId.requestNonce);
         
-        fromBridge.connect(this.signer);
-        const events: CommitEvent[] = await fromBridge.queryFilter(filter);
+        const events: CommitEvent[] = await fromBridge.connect(this.signer).queryFilter(filter);
 
         if (events.length == 0) {
             throw("Commit transaction for this request does not exist or has not yet been mined")
@@ -181,7 +172,13 @@ export class Validator {
         return provider.getBlockNumber();
     }
 
-    private _unixTimeInSeconds(): number {
-        return Math.floor(Date.now() / 1000);
+    private _unixTimeInSeconds(): BigNumber {
+        return BigNumber.from(Math.floor(Date.now() / 1000));
+    }
+
+    private _requestIdToString(requestId: BridgeRequestId): string {
+        return  "tokenOwner:"   + utils.hexZeroPad(requestId.tokenOwner, 20)                    + "||" +
+                "tokenId:"      + utils.hexZeroPad(requestId.tokenId.toHexString(), 32)         + "||" +
+                "requestNonce:" + utils.hexZeroPad(requestId.requestNonce.toHexString(), 32);
     }
 }
