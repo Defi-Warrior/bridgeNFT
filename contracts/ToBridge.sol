@@ -3,8 +3,12 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "./interfaces/IToBridge.sol";
 
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./ToNFT.sol";
+import "./utils/Commitment.sol";
 import "./utils/Signature.sol";
 
 /**
@@ -13,18 +17,15 @@ import "./utils/Signature.sol";
  * user's ERC721 NFTs from another chain to this chain. Both chains are Ethereum-based.
  * The second part is essentially minting new NFTs corresponding to the old ones for users.
  */
-contract ToBridge is Ownable, Initializable {
-
-    struct RequestId {
-        address tokenOwner;
-        uint256 tokenId;
-        uint256 nonce;
-    }
+contract ToBridge is IToBridge, Ownable, Initializable, ReentrancyGuard {
 
     struct AcquirementDetail {
         address acquirer;
+        uint256 oldTokenId;
+        uint256 newTokenId;
+        string  tokenUri;
         uint256 requestTimestamp;
-        uint256 waitingDurationToAcquire;
+        uint256 waitingDurationForOldTokenToBeProcessed;
         uint256 timestamp;
     }
 
@@ -40,223 +41,298 @@ contract ToBridge is Ownable, Initializable {
      * - toBridge: Address of this contract.
      * toToken contract and toBridge contract must be on the same chain.
      *
-     * - server: (Blockchain) Address of the server that confirms request on the other chain
+     * - validator: (Blockchain) Address of the validator that confirms request on the other chain
      * and provides user signature to obtain the new token on this chain.
      *
-     * - globalWaitingDurationToAcquire: The duration the token owner needs to wait
-     * after requesting bridging token at fromBridge, in order to acquire the new token.
+     * - globalWaitingDurationForOldTokenToBeProcessed: The duration the token owner needs to wait
+     * in order to acquire, starting from request's timestamp determined by the validator.
+     * This is to ensure that the "commit" transaction on the old chain is finalized.
      */
-    address public fromToken;
-    address public fromBridge;
-    ToNFT   public toToken;
-    address public toBridge;
-    address public server;
-    uint256 public globalWaitingDurationToAcquire;
+    address public  fromToken;
+    address public  fromBridge;
+    ToNFT   public  toToken;
+    address public  toBridge;
+    address public  validator;
+    uint256 public  globalWaitingDurationForOldTokenToBeProcessed;
 
     /**
-     * Mapping from token's ID on OLD chain -> the acquirement on that token's ID.
+     * Boolean flag to determine whether this contract has been initialized or not.
+     * Certain functions are blocked if not initialized.
+     */
+    bool private _initialized = false;
+
+    /**
+     * Mapping from validator's commitment to acquirement.
      * An acquirement will only be stored if a transaction call to "acquire" function succeeds.
+
+     * Even if there were multiple tokens with same token ID requested to be bridged,
+     * the commitment would be different each time (with high probability). Therefore commitment
+     * could be used as an identity for every requests and acquirements.
      */
-    mapping(uint256 => AcquirementDetail) private _acquirements;
+    mapping(bytes32 => AcquirementDetail) private _acquirements;
 
-    /**
-     * Mapping from user address -> token's ID -> the nonce used to acquire token.
-     * 
-     */
-    mapping(address => mapping(uint256 => uint256)) private _latestNonces;
-
-    event Acquire(
-        address indexed acquirer,
-        uint256 indexed tokenId,
-        uint256 indexed nonce,
-        uint256         requestTimestamp,
-        uint256         waitingDurationToAcquire,
-        uint256         acquirementTimestamp);
-
-    event Reject(
-        address indexed acquirer,
-        uint256 indexed tokenId,
-        uint256 indexed nonce,
-        uint256         rejectTimestamp);
-
-    event ForceMint(
-        address indexed to,
-        uint256 indexed tokenId,
-        uint256 indexed nonce,
-        uint256         forceMintTimestamp);
-
-    modifier onlyServer(string memory errorMessage) {
-        require(msg.sender == server, errorMessage);
+    modifier onlyInitialized(string memory contractName) {
+        require(_initialized,
+            string(abi.encodePacked(contractName, ": Contract is not initialized")));
         _;
     }
 
-    constructor() {}
-
+    /**
+     * @dev To be called immediately after contract deployment. Replaces constructor.
+     *
+     * Guide for child contracts' initialization:
+     *
+     * - If having the same parameters as this function but initializing state variables
+     * in a different way, OVERRIDE this function according to these requirements:
+     *  + MUST specify "onlyOwner" and "initializer" modifier.
+     *  + MUST NOT call super.initialize().
+     *  + MUST initialize all state variables initialized by this function (in the desired way).
+     *  + MUST call _finishInitialization() at the end of the function.
+     *
+     * - If having more parameters than this function, do two things:
+     * OVERRIDE this function then make it always revert.
+     * Write OVERLOAD function(s) according to these requirements:
+     *  + MUST specify "onlyOwner" and "initializer" modifier.
+     *  + MUST include all parameters from this funtion.
+     *  + MUST initialize all state variables initialized by this function.
+     *  + After that do whatever needed things for its state variables' initialization.
+     *  + MUST call _finishInitialization() at the end of the function.
+     *
+     * - If having less parameters... the Earth will explode, don't do that.
+     */
     function initialize(
         address fromToken_,
         address fromBridge_,
         address toToken_,
-        uint256 globalWaitingDurationToAcquire_
-    ) external initializer {
+        address validator_,
+        uint256 globalWaitingDurationForOldTokenToBeProcessed_
+    ) public virtual onlyOwner initializer {
         fromToken = fromToken_;
         fromBridge = fromBridge_;
+        validator = validator_;
+        globalWaitingDurationForOldTokenToBeProcessed = globalWaitingDurationForOldTokenToBeProcessed_;
+
         toToken = ToNFT(toToken_);
-        globalWaitingDurationToAcquire = globalWaitingDurationToAcquire_;
-
         toBridge = address(this);
-        server = msg.sender;
+
+        _finishInitialization();
     }
 
     /**
-     * @dev Change server
+     * @dev This function MUST be called in every "initialize" function, including
+     * overriding and overloading function, at the end of the function.
      */
-    function setServer(address newServer) external onlyOwner {
-        server = newServer;
+    function _finishInitialization() internal onlyInitializing {
+        _initialized = true;
     }
 
     /**
-     * @dev Change globalWaitingDurationToAcquire
+     * @dev "validator" setter
      */
-    function setGlobalWaitingDurationToAcquire(uint256 newGlobalWaitingDurationToAcquire) external onlyOwner {
-        globalWaitingDurationToAcquire = newGlobalWaitingDurationToAcquire;
+    function setValidator(address newValidator) external onlyOwner {
+        validator = newValidator;
     }
 
     /**
-     * @dev User calls this function to get new token corresponding to the old one.
-     * @param requestId Consists of token owner's address, token's ID and nonce.
-     * @param requestTimestamp The request timestamp stored in FromBridge.
-     * @param signature This signature was signed by the server to confirm the request
-     * after seeing the "Request" event emitted from FromBridge.
+     * @dev "globalWaitingDurationForOldTokenToBeProcessed" setter
+     */
+    function setGlobalWaitingDurationForOldTokenToBeProcessed(uint256 newGlobalWaitingDurationForOldTokenToBeProcessed) external onlyOwner {
+        globalWaitingDurationForOldTokenToBeProcessed = newGlobalWaitingDurationForOldTokenToBeProcessed;
+    }
+
+    /**
+     * @dev This function is called by users to get new token corresponding to the old one.
+     * @param tokenOwner The owner of the old token.
+     * @param tokenId The ID of the old token.
+     * @param tokenUri The URI of the old token.
+     * @param commitment The validator's commitment.
+     * @param secret The validator's revealed value.
+     * @param requestTimestamp The timestamp when the validator received request.
+     * @param validatorSignature This signature was signed by the validator after verifying
+     * that the requester is the token's owner and FromBridge is approved on this token.
+     * For message format, see "verifyValidatorSignature" function in "Signature.sol" contract.
      */
     function acquire(
-        RequestId calldata requestId,
+        address tokenOwner, uint256 tokenId,
+        string memory tokenUri,
+        bytes32 commitment, bytes calldata secret,
         uint256 requestTimestamp,
-        bytes memory signature
-    ) external {
-        // Verify if the provided information of the request is true
-        bytes memory message = abi.encodePacked("ConfirmNftBurned",
-            fromToken, fromBridge,
-            address(toToken), toBridge,
-            requestId.tokenOwner, requestId.tokenId,
-            requestId.nonce, requestTimestamp
-        );
-        require(Signature.verifySignature(server, message, signature), "Invalid signature");
-
-        // The token must not have been acquired
-        require(!_isAcquired(requestId.tokenId), "Token has been acquired");
-
-        // By policy, token owners must acquire by themselves
-        require(msg.sender == requestId.tokenOwner, "Token can only be acquired by its owner");
-
-        // Revert if user did not wait enough time
-        require(block.timestamp > requestTimestamp + globalWaitingDurationToAcquire, "Elapsed time from request is not enough");
-
-        // Revert if request had been rejected by server
-        require(!_isRejected(requestId), "This request for token acquirement has been rejected by the server");
-
-        // Save acquirement
-        uint256 waitingDurationToAcquire = globalWaitingDurationToAcquire;
-        uint256 acquirementTimestamp = block.timestamp;
-        _acquirements[requestId.tokenId] = AcquirementDetail(requestId.tokenOwner,
-                                                                requestTimestamp,
-                                                                waitingDurationToAcquire,
-                                                                acquirementTimestamp);
-
-        // Mint a new token corresponding to the old one
-        toToken.mint(requestId.tokenOwner, requestId.tokenId);
-
-        // Emit event
-        emit Acquire(
-            requestId.tokenOwner,
-            requestId.tokenId,
-            requestId.nonce,
+        bytes memory validatorSignature
+    ) external override onlyInitialized("ToBridge") nonReentrant {
+        // Check all requirements to acquire.
+        _checkAcquireRequiments(
+            tokenOwner, tokenId,
+            tokenUri,
+            commitment, secret,
             requestTimestamp,
-            waitingDurationToAcquire,
-            acquirementTimestamp);
+            validatorSignature);
+
+        // Mint a new token corresponding to the old one.
+        uint256 newTokenId = _mint(tokenOwner, tokenUri);
+
+        // Save acquirement.
+        _saveAcquirement(
+            tokenOwner,
+            tokenId, newTokenId,
+            tokenUri, commitment,
+            requestTimestamp,
+            globalWaitingDurationForOldTokenToBeProcessed,
+            block.timestamp);
+
+        // Emit event.
+        emit Acquire(
+            tokenOwner,
+            tokenId, newTokenId,
+            tokenUri, commitment,
+            requestTimestamp,
+            globalWaitingDurationForOldTokenToBeProcessed,
+            block.timestamp);
     }
 
     /**
-     * @dev In case the server noticed that the confirmation transaction sent to fromBridge had not
-     * been finalized (i.e not included in some block that is, for example, 6 blocks backward
-     * from the newest block) after a specific period of time (e.g 10 minutes), the server would
-     * call this function to reject user to acquire token by using that unconfirmed request.
-     * 
-     * It should be noted that the request sent to this function must be the latest request
-     * corresponding to that token processed by fromBridge. Because technically what this function
-     * does is just increasing the latest nonce by 1, thus making the nonces unsynchronized.
+     * @dev Check all requirements to acquire new token. If an child contract has more
+     * requirements, when overriding, it SHOULD first call super._checkAcquireRequiments(...)
+     * then add its own requirements.
+     * Parameters are the same as "acquire" function.
      *
-     * @param requestId Consists of token owner's address, token's ID and nonce.
+     * Currently the checks are:
+     * - Validator's signature.
+     * - Validator's commitment.
+     * - The new token has not yet been acquired.
+     * - The message sender is the token owner.
+     * - The commit transaction at FromBridge is finalized.
      */
-    function rejectAcquirementByRequest(RequestId calldata requestId)
-            external onlyServer("Only server is allowed to reject request") {
-        // The token must not have been acquired
-        require(!_isAcquired(requestId.tokenId), "Token has been acquired");
+    function _checkAcquireRequiments(
+        address tokenOwner, uint256 tokenId,
+        string memory tokenUri,
+        bytes32 commitment, bytes calldata secret,
+        uint256 requestTimestamp,
+        bytes memory validatorSignature
+    ) internal view virtual {
+        // Verify validator's signature.
+        require(
+            _verifyValidatorSignature(
+                tokenOwner, tokenId,
+                tokenUri,
+                commitment, requestTimestamp,
+                validatorSignature),
+            "Acquire: Invalid validator signature");
 
-        // Make this nonce unsynchronized (i.e. unequal) with the nonce stored in FromBridge,
-        // so that user could not acquire token using the nonce in this request.
-        // Note that, by increment by 1, this nonce will auto resynchronized with the other after user
-        // claims his/her token back at FromBridge.
-        _latestNonces[requestId.tokenOwner][requestId.tokenId]++;
+        // Verify validator's revealed value.
+        require(Commitment.verify(commitment, secret), "Acquire: Commitment and revealed value do not match");
 
-        // Emit event
-        uint256 rejectTimestamp = block.timestamp;
-        emit Reject(requestId.tokenOwner, requestId.tokenId, requestId.nonce, rejectTimestamp);
+        // The new token must not have been acquired.
+        require(!_isAcquired(commitment), "Acquire: Token has been acquired");
+
+        // By policy, token owners must acquire by themselves.
+        require(msg.sender == tokenOwner, "Acquire: Token can only be acquired by its owner");
+
+        // Revert if user did not wait enough time.
+        require(block.timestamp > requestTimestamp + globalWaitingDurationForOldTokenToBeProcessed,
+            "Acquire: Elapsed time from request is not enough");
     }
 
     /**
-     * @dev The server could reallow acquirement by a request that was previously rejected 
-     * @param requestId Consists of token owner's address, token's ID and nonce.
-     * @param requestTimestamp The request's timestamp
+     * @dev Mint new token.
+     * @param to The owner of the newly minted token.
+     * @param tokenUri The URI of the newly minted token.
+     * @return The ID of the newly minted token.
      */
-    function forceMintAfterReject(RequestId calldata requestId, uint256 requestTimestamp)
-            external onlyServer("Only server is allowed to force mint") {
-        // The token must not have been acquired
-        require(!_isAcquired(requestId.tokenId), "Token has been acquired");
+    function _mint(address to, string memory tokenUri) internal virtual returns (uint256) {
+        uint256 tokenId = _findAvailableTokenId(toToken);
 
-        // Save acquirement
-        // Set "waitingDurationToAcquire" to 0 instead of "globalWaitingDurationToAcquire"
-        // to distinguish force minting from normal acquirement.
-        uint256 waitingDurationToAcquire = 0;
-        uint256 forceMintTimestamp = block.timestamp;
-        _acquirements[requestId.tokenId] = AcquirementDetail(requestId.tokenOwner,
-                                                                requestTimestamp,
-                                                                waitingDurationToAcquire,
-                                                                forceMintTimestamp);
+        toToken.mint(to, tokenId, tokenUri);
 
-        // Resynchronize nonce. The nonce value after subtract acts as the nonce
-        // used to acquire
-        _latestNonces[requestId.tokenOwner][requestId.tokenId]--;
+        return tokenId;
+    }
 
-        // Mint a new token corresponding to the old one
-        toToken.mint(requestId.tokenOwner, requestId.tokenId);
+    /**
+     * @dev Utility function to help find an ID that is currently available (not owned),
+     * in order to mint new token.
+     * @param token The ERC721 token in which the ID is looked up.
+     * @return An available token ID.
+     */
+    function _findAvailableTokenId(IERC721 token) internal view virtual returns (uint256) {
+        uint256 tokenId;
+        uint256 i = 0;
+        
+        while (true) {
+            // Generate somewhat hard-to-collide ID.
+            tokenId = uint256(keccak256( abi.encodePacked(address(token), block.timestamp, i) ));
 
-        // Emit event
-        emit ForceMint(
-            requestId.tokenOwner,
-            requestId.tokenId,
-            requestId.nonce,
-            forceMintTimestamp);
+            // Check if an ID is available (not owned) or not.
+            // Because "ERC721._exists" is internal function, use "ERC721.ownerOf" instead.
+            // Determine an ID's availability based on whether or not "ownerOf" revert.
+            // If an ID is not owned by any non-zero addess, it will revert.
+            try token.ownerOf(tokenId) {
+                i++;
+            }
+            catch {
+                return tokenId;
+            }
+        }
+
+        // Warning suppressing purpose. Execution will never reach here (NEED TEST).
+        return 0;
+    }
+
+    /**
+     * @dev Save acquirement to contract's storage.
+     */
+    function _saveAcquirement(
+        address acquirer,
+        uint256 oldTokenId, uint256 newTokenId,
+        string memory tokenUri, bytes32 commitment,
+        uint256 requestTimestamp,
+        uint256 waitingDurationForOldTokenToBeProcessed,
+        uint256 acquirementTimestamp
+    ) internal {        
+        _acquirements[commitment] = AcquirementDetail(
+            acquirer,
+            oldTokenId, newTokenId,
+            tokenUri,
+            requestTimestamp,
+            waitingDurationForOldTokenToBeProcessed,
+            acquirementTimestamp);
     }
 
     /**
      * @dev The token had been acquired if and only if the "_acquirements" mapping would
      * have stored non-default values in the AcquirementDetail struct. The default value
      * of every storage slot is 0.
-     * @param tokenId The token's ID on old chain.
+     * @param commitment The validator's commitment. It uniquely identifies every acquirements.
      * @return true if the token has already been acquired.
      */
-    function _isAcquired(uint256 tokenId) internal view returns (bool) {
-        return _acquirements[tokenId].timestamp != 0;
+    function _isAcquired(bytes32 commitment) internal view returns (bool) {
+        return _acquirements[commitment].timestamp != 0;
     }
 
     /**
-     * @dev The request has been rejected by the server if and only if the nonce coming from the
-     * request (which originated from FromBridge) and the nonce stored in "_latestNonces"
-     * are unequal.
-     * @param requestId Consists of token owner's address, token's ID and nonce.
-     * @return true if the request has been rejected by the server.
+     * @dev Wrapper of "verifyValidatorSignature" function in "Signature.sol" contract,
+     * for code readability purpose in "acquire" function.
+     * @param tokenOwner The owner of the requested token.
+     * @param tokenId The ID of the requested token.
+     * @param tokenUri The URI of the requested token.
+     * @param commitment The validator's commitment.
+     * @param requestTimestamp The timestamp when the validator received request.
+     * @param signature The signature signed by the validator.
+     * For message format, see "verifyValidatorSignature" function in "Signature.sol" contract.
+     * @return true if the signature is valid with respect to the validator's address
+     * and given information.
      */
-    function _isRejected(RequestId calldata requestId) internal view returns (bool) {
-        return requestId.nonce != _latestNonces[requestId.tokenOwner][requestId.tokenId];
+    function _verifyValidatorSignature(
+        address tokenOwner, uint256 tokenId,
+        string memory tokenUri,
+        bytes32 commitment, uint256 requestTimestamp,
+        bytes memory signature
+    ) internal view returns (bool) {
+        return Signature.verifyValidatorSignature(
+            fromToken, fromBridge,
+            address(toToken), toBridge,
+            tokenOwner, tokenId,
+            tokenUri,
+            commitment, requestTimestamp,
+            validator,
+            signature);
     }
 }
