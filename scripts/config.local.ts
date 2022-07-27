@@ -3,10 +3,10 @@ import ValidatorConfig from "./types/config/validator-config";
 import OwnerConfig from "./types/config/owner-config";
 
 export const deployConfig: DeployConfig = {
-    GLOBAL_WAITING_DURATION_FOR_OLD_TOKEN_TO_BE_PROCESSED: 10
+    GLOBAL_WAITING_DURATION_FOR_OLD_TOKEN_TO_BE_PROCESSED: 0
 };
 
-const NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION: number = 6;
+const NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION: number = 0;
 
 export const validatorConfig: ValidatorConfig = {
     NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION: NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION
