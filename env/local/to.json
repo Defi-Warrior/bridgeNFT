@@ -1,0 +1,11 @@
+{
+    "LOCALHOST_8546": {
+        "URL": "http://127.0.0.1:8546",
+        "TOKENS": {
+            "ToNFT": {
+                "ADDRESS": "",
+                "TOBRIDGE": ""
+            }
+        }
+    }
+}

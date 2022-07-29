@@ -1,0 +1,17 @@
+{
+    "BSC": {
+        "TOKENS": {
+            "Defi Warrior NFT": {
+                "ADDRESS": "0xD21F97E08599560C721D668962Fba875684b03C4",
+                "DYNAMIC_FROMBRIDGE_COMPATIBILITY": false,
+                "Defi Warrior BodyPart NFT": "0x9B4dC1327c8b8A5fA3989b48699747Ed1618EEF2",
+                "STATIC_FROMBRIDGE": ""
+            }
+        },
+        "DYNAMIC_FROMBRIDGE": ""
+    },
+    "POLYGON": {
+        "TOKENS": {},
+        "DYNAMIC_FROMBRIDGE": ""
+    }
+}

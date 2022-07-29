@@ -1,0 +1,23 @@
+{
+    "LOCALHOST_8546": {
+        "TOKENS": {
+            "ToNFT": {
+                "ADDRESS": "",
+                "TOBRIDGE": ""
+            }
+        }
+    },
+    "BSC": {
+        "TOKENS": {
+            "Defi Warrior NFT": {
+                "ADDRESS": "0xD21F97E08599560C721D668962Fba875684b03C4",
+                "TOBRIDGE": ""
+            }
+        }
+    },
+    "POLYGON": {
+        "TOKENS": {
+
+        }
+    }
+}

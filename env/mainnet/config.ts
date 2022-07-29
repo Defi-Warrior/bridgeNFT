@@ -1,6 +1,6 @@
-import DeployConfig from "./types/config/deploy-config";
-import ValidatorConfig from "./types/config/validator-config";
-import OwnerConfig from "./types/config/owner-config";
+import DeployConfig from "../../scripts/types/config/deploy-config";
+import ValidatorConfig from "../../scripts/types/config/validator-config";
+import OwnerConfig from "../../scripts/types/config/owner-config";
 
 export const deployConfig: DeployConfig = {
     GLOBAL_WAITING_DURATION_FOR_OLD_TOKEN_TO_BE_PROCESSED: 10
