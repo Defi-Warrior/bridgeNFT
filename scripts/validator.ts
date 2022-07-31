@@ -11,28 +11,26 @@ import sodium from "libsodium-wrappers";
 // Project's modules
 import ValidatorConfig from "./types/config/validator-config";
 import { BridgeRequest, BridgeRequestId } from "./types/dto/bridge-request";
-import { OwnerSignature } from "./utils/owner-signature";
-import { ValidatorSignature } from "./utils/validator-signature";
+import { OwnerSignature } from "./utils/crypto/owner-signature";
+import { ValidatorSignature } from "./utils/crypto/validator-signature";
 
 export class Validator {
-    private config: ValidatorConfig;
+    public readonly address: string;
     private signer: Signer;
+    private config: ValidatorConfig;
 
     private commitKey: Uint8Array;
 
-    private constructor(config: ValidatorConfig, signer: Signer) {
-        this.config = config;
+    private constructor(address: string, signer: Signer, config: ValidatorConfig) {
+        this.address = address;
         this.signer = signer;
+        this.config = config;
         this.commitKey = sodium.crypto_auth_keygen();
     }
 
-    public static async instantiate(config: ValidatorConfig, signer: Signer): Promise<Validator> {
+    public static async instantiate(signer: Signer, config: ValidatorConfig): Promise<Validator> {
         await sodium.ready;
-        return new Validator(config, signer);
-    }
-
-    public async address(): Promise<string> {
-        return this.signer.getAddress();
+        return new Validator(await signer.getAddress(), signer, config);
     }
 
     public async processRequest(

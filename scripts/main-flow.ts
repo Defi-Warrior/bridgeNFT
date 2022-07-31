@@ -1,42 +1,66 @@
+import { BigNumber, BytesLike, Signer } from "ethers";
 import { ethers } from "hardhat";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { BigNumber, BytesLike } from "ethers";
 
-import {
-    FromNFT,
-    ToNFT,
-    IFromBridge,
-    IToBridge
-} from "../typechain-types";
-
-import { deployConfig, ownerConfig, validatorConfig } from "./config.develop";
-import { Validator } from "./validator";
-import { TokenOwner } from "./token-owner";
-import { BridgeRequest } from "./types/dto/bridge-request";
-import { deploy, initialize } from "./deploy";
+import { FromNFT, ToNFT, IFromBridge, IToBridge, FromBridge, ToBridge } from "../typechain-types";
 import { TypedEventFilter } from "../typechain-types/common";
 import { AcquireEvent } from "../typechain-types/contracts/interfaces/IToBridge";
 
+import { BridgeRequest }
+    from "./types/dto/bridge-request";
+import { FromTokenInfo, ToTokenInfo }
+    from "./types/dto/token-info";
+import Network
+    from "./types/network-enum";
+import { retrieveDynamicFromBridge }
+    from "./utils/data/retrieve-dynamic-frombridge";
+import { retrieveTokenInfoInFromData, retrieveTokenInfoInToData }
+    from "./utils/data/retrieve-token-info";
+import { ownerConfig, validatorConfig }
+    from "./utils/config";
+import { getSigner, Role }
+    from "./utils/get-signer";
+import { getTokenOwnerSigner }
+    from "./utils/_get-token-owner-signer";
+import { Validator }
+    from "./validator";
+import { TokenOwner }
+    from "./token-owner";
+import deployAll from "./deploy/function/_deploy-all";
+
+const fromNetwork:  Network = Network.LOCALHOST_8545;
+const toNetwork:    Network = Network.LOCALHOST_8546;
+
 async function main() {
-    const deployer: SignerWithAddress = (await ethers.getSigners())[0];
-    const { fromToken, fromBridge, toToken, toBridge } = await deploy(deployer);
+    await deployAll(fromNetwork, toNetwork);
 
-    await initialize(deployConfig, deployer, fromToken, fromBridge, toToken, toBridge);
+    const fromTokenInfo: FromTokenInfo = retrieveTokenInfoInFromData(fromNetwork, "FromNFT");
+    const fromToken: FromNFT = await ethers.getContractAt("FromNFT", fromTokenInfo.ADDRESS);
+    const fromBridgeAddr: string =
+        fromTokenInfo.DYNAMIC_FROMBRIDGE_COMPATIBILITY ? retrieveDynamicFromBridge(fromNetwork) : fromTokenInfo.STATIC_FROMBRIDGE;
+    const fromBridge: FromBridge = await ethers.getContractAt("FromBridge", fromBridgeAddr);
 
-    const validator: Validator = await Validator.instantiate( validatorConfig, (await ethers.getSigners())[1] );
-    const tokenOwner: TokenOwner = new TokenOwner( ownerConfig, (await ethers.getSigners())[2] );
+    const toTokenInfo: ToTokenInfo = retrieveTokenInfoInToData(toNetwork, "ToNFT");
+    const toToken: ToNFT = await ethers.getContractAt("ToNFT", toTokenInfo.ADDRESS);
+    if (toTokenInfo.TOBRIDGE == undefined) {
+        throw("ToBridge not available");
+    }
+    const toBridge: ToBridge = await ethers.getContractAt("ToBridge", toTokenInfo.TOBRIDGE);
+
+    const validator: Validator = await Validator.instantiate(await getSigner(Role.VALIDATOR, fromNetwork), validatorConfig);
+
+    const tokenOwnerFromSigner: Signer = await getTokenOwnerSigner(fromNetwork);
+    const tokenOwnerToSigner: Signer = await getTokenOwnerSigner(toNetwork);
+    const tokenOwner: TokenOwner = new TokenOwner(await tokenOwnerFromSigner.getAddress(), ownerConfig);
 
     // Mint token on FromNFT for test
     const tokenId: BigNumber = BigNumber.from(1);
     const tokenUri: string = "abc";
-    fromToken.connect(deployer);
-    await fromToken.mint(tokenOwner.address(), tokenId, tokenUri);
-
-    await bridge(fromToken, fromBridge, toToken, toBridge, validator, tokenOwner, tokenId);
+    const contractOwner: Signer = await getSigner(Role.DEPLOYER, fromNetwork);
+    await fromToken.connect(contractOwner).mint(tokenOwner.address, tokenId, tokenUri);
     
     // Test if bridge succeeded
-    const filter: TypedEventFilter<AcquireEvent> = toBridge.filters.Acquire(await tokenOwner.address(), tokenId);
-    toBridge.once(filter, async (
+    const filter: TypedEventFilter<AcquireEvent> = toBridge.filters.Acquire(tokenOwner.address, tokenId);
+    toBridge.connect(tokenOwnerToSigner).once(filter, async (
         acquirer,
         oldTokenId,
         newTokenId,
@@ -48,8 +72,11 @@ async function main() {
         event
     ) => {
         console.log("Bridge success:");
-        console.log(await toToken.ownerOf(newTokenId) === await tokenOwner.address());
+        console.log(await toToken.connect(tokenOwnerToSigner).ownerOf(newTokenId) === tokenOwner.address);
+        console.log(newTokenId);
     });
+
+    await bridge(fromToken, fromBridge, toToken, toBridge, validator, tokenOwner, tokenOwnerFromSigner, tokenOwnerToSigner, tokenId);
 }
 
 async function bridge(
@@ -57,34 +84,42 @@ async function bridge(
     toToken: ToNFT, toBridge: IToBridge,
     validator: Validator,
     tokenOwner: TokenOwner,
+    tokenOwnerFromSigner: Signer,
+    tokenOwnerToSigner: Signer,
     tokenId: BigNumber
 ) {
     /// PHASE 1: CREATE REQUEST
     /// SIDE: OWNER (FRONTEND)
 
     // Step 1a: Approve FromBridge for all tokens.
-    tokenOwner.approveForAll(fromToken, fromBridge);
+    await tokenOwner.approveForAll(tokenOwnerFromSigner, fromToken, fromBridge);
     // Could alternatively approve for the requested token only by calling:
     // tokenOwner.approve(fromToken, fromBridge, tokenId);
         
     // Step 1b: Get request nonce from FromBridge.
-    const requestNonce: BigNumber = await tokenOwner.getRequestNonce(fromBridge, tokenId);
+    const requestNonce: BigNumber = await tokenOwner.getRequestNonce(tokenOwnerFromSigner, fromBridge, tokenId);
     
     // Step 1c: Ask validator authentication challenge.
 
 
     // Step 2: Sign bridge request.
     const ownerSignature: BytesLike = await tokenOwner.signRequest(
+        tokenOwnerFromSigner,
         fromToken, fromBridge,
         toToken, toBridge,
         tokenId, requestNonce);
     
     // Step 3a: Bind listener to commit event at FromBridge.
-    tokenOwner.bindListenerToCommitEvent(fromToken, fromBridge, toBridge, tokenId, requestNonce, validator);
+    tokenOwner.bindListenerToCommitEvent(
+        tokenOwnerFromSigner, tokenOwnerToSigner,
+        fromToken, fromBridge,
+        toBridge,
+        tokenId, requestNonce,
+        validator);
         
     // Step 3b: Build request then send to validator.
     const request: BridgeRequest = new BridgeRequest(
-        await tokenOwner.address(),
+        tokenOwner.address,
         tokenId, requestNonce,
         ownerSignature
     );
