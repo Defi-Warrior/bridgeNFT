@@ -1,0 +1,14 @@
+{
+    "LOCALHOST_8545": {
+        "URL": "http://127.0.0.1:8545"
+    },
+    "LOCALHOST_8546": {
+        "URL": "http://127.0.0.1:8546"
+    },
+    "BSC": {
+        "URL": "https://data-seed-prebsc-2-s1.binance.org:8545"
+    },
+    "POLYGON": {
+        "URL": "https://rpc-mumbai.maticvigil.com"
+    }
+}
