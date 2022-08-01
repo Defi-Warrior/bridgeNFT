@@ -5,11 +5,10 @@ import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /**
- * @title Signature
- * @dev This library is used for signature verification specific to the bridge protocol.
+ * @title OwnerSignature
+ * @dev This library is used for token owner's signature verification specific to the bridge protocol.
  */
-library Signature {
-
+library OwnerSignature {
     /**
      * @dev Verify owner's signature. Right now the message is crafted using plain
      * string concatenation. Will upgrade to EIP-712 later.
@@ -18,36 +17,48 @@ library Signature {
      * @param fromBridge Address (Ethereum format) of fromBridge.
      * @param toToken Address (Ethereum format) of toToken.
      * @param toBridge Address (Ethereum format) of toBridge.
-     * @param tokenId The ID of the requested token.
      * @param requestNonce The request's nonce.
+     * @param tokenId The ID of the requested token.
+     * @param authnChallenge The challenge for user authentication to validator.
      * @param signature This signature is signed by the token's owner, and is the prove
      * that the owner indeed requested the token to be bridged.
      * MESSAGE FORMAT:
      *      "RequestBridge" || fromToken || fromBridge || toToken || toBridge ||
-     *      tokenId || requestNonce
+     *      requestNonce || tokenId || authnChallenge(*)
+     * Values marked with an asterisk (*) have dynamic size so they need to be hashed
+     * before concatenating for security reason.
      * @return true if the signature is valid with respect to the owner's address
      * and given information.
      */
-    function verifyOwnerSignature(
+    function verify(
         address tokenOwner,
         address fromToken, address fromBridge,
         address toToken, address toBridge,
-        uint256 tokenId, uint256 requestNonce,
+        uint256 requestNonce, uint256 tokenId,
+        bytes calldata authnChallenge,
         bytes memory signature
     ) internal view returns (bool) {
         // Craft signed message
         bytes memory message = abi.encodePacked("RequestBridge",
             fromToken, fromBridge,
             toToken, toBridge,
-            tokenId, requestNonce
+            requestNonce, tokenId,
+            keccak256(authnChallenge)
         );
 
-        return _verifySignature(tokenOwner, message, signature);
+        return SignatureChecker.isValidSignatureNow(tokenOwner, ECDSA.toEthSignedMessageHash(message), signature);
     }
+}
 
+/**
+ * @title ValidatorSignature
+ * @dev This library is used for validator's signature verification specific to the bridge protocol.
+ */
+library ValidatorSignature {
     /**
      * @dev Verify validator's signature. Right now the message is crafted using plain
      * string concatenation. Will upgrade to EIP-712 later.
+     * @param validator Address (Ethereum format) of validator.
      * @param fromToken Address (Ethereum format) of fromToken.
      * @param fromBridge Address (Ethereum format) of fromBridge.
      * @param toToken Address (Ethereum format) of toToken.
@@ -57,24 +68,25 @@ library Signature {
      * @param tokenUri The URI of the request token.
      * @param commitment The validator's commitment.
      * @param requestTimestamp The timestamp when the validator received request.
-     * @param validator Address (Ethereum format) of validator.
      * @param signature This signature was signed by the validator after verifying
      * that the requester is the token's owner and ToBridge is approved on this token.
      * The owner will use this signature at FromBridge to acquire or claim a new token
      * (which shall be identical to the old one) on the other chain.
      * MESSAGE FORMAT:
      *      "Commit" || fromToken || fromBridge || toToken || toBridge ||
-     *      tokenOwner || tokenId || tokenUri || commitment || requestTimestamp
+     *      tokenOwner || tokenId || tokenUri(*) || commitment || requestTimestamp
+     * Values marked with an asterisk (*) have dynamic size so they need to be hashed
+     * before concatenating for security reason.
      * @return true if the signature is valid with respect to the validator's address
      * and given information.
      */
-    function verifyValidatorSignature(
+    function verify(
+        address validator,
         address fromToken, address fromBridge,
         address toToken, address toBridge,
-        address tokenOwner, uint256 tokenId,
-        string memory tokenUri,
+        address tokenOwner,
+        uint256 tokenId, bytes memory tokenUri,
         bytes32 commitment, uint256 requestTimestamp,
-        address validator,
         bytes memory signature
     ) internal view returns (bool) {
         // Craft signed message
@@ -82,21 +94,10 @@ library Signature {
             fromToken, fromBridge,
             toToken, toBridge,
             tokenOwner, tokenId,
-            // The "tokenUri" variable's size is dynamic so it needs to be hashed
-            // when crafting message for security reason.
-            // Here abi.encodePacked is used only to convert string to bytes.
-            keccak256(abi.encodePacked(tokenUri)),
+            keccak256(tokenUri),
             commitment, requestTimestamp
         );
 
-        return _verifySignature(validator, message, signature);
-    }
-
-    function _verifySignature(
-        address signer,
-        bytes memory message,
-        bytes memory signature
-    ) private view returns(bool) {
-        return SignatureChecker.isValidSignatureNow(signer, ECDSA.toEthSignedMessageHash(message), signature);
+        return SignatureChecker.isValidSignatureNow(validator, ECDSA.toEthSignedMessageHash(message), signature);
     }
 }

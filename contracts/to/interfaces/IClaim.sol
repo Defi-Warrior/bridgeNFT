@@ -16,8 +16,8 @@ interface IClaim {
 
     event AcquireByClaim(
         address indexed acquirer,
-        uint256 indexed oldTokenId,
-        uint256         newTokenId,
+        uint256         oldTokenId,
+        uint256 indexed newTokenId,
         string          tokenUri,
         bytes32 indexed commitment,
         uint256         requestTimestamp,
