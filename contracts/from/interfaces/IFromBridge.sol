@@ -2,6 +2,18 @@
 pragma solidity ^0.8.0;
 
 interface IFromBridge {
+
+    event Commit(
+        address indexed fromToken,
+        address         toToken,
+        address         toBridge,
+        address indexed tokenOwner,
+        uint256 indexed requestNonce,
+        uint256         tokenId,
+        bytes           tokenUri,
+        bytes32         commitment,
+        uint256         requestTimestamp,
+        bytes           validatorSignature);
         
     /**
      * @dev Users call to get nonce before requesting the validator for token bridging.

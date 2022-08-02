@@ -1,15 +1,19 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
-import "./interfaces/IStaticFromBridge.sol";
 import "./AbstractFromBridge.sol";
 
-abstract contract AbstractStaticFromBridge is IStaticFromBridge, AbstractFromBridge {
+abstract contract AbstractStaticFromBridge is AbstractFromBridge {
 
     /**
      * Address (Ethereum format) of the token this FromBridge serves.
      */
     address public fromToken;
+
+    modifier validateFromToken(address fromToken_, string memory errorMessage) {
+        require(fromToken_ == fromToken, errorMessage);
+        _;
+    }
 
     /**
      * @dev Constructor
@@ -20,26 +24,37 @@ abstract contract AbstractStaticFromBridge is IStaticFromBridge, AbstractFromBri
 
     /**
      * @dev See AbstractFromBridge.
-     * Emit the information needed for owner to acquire new token at ToBridge:
-     * - Token URI
-     * - Commitment
-     * - Request timestamp
-     * - Validator's signature
+     * Override "AbstractFromBridge.getTokenUri" to add fromToken validation.
+     * @return result of "super.getTokenUri" function.
      */
-    function _emitEvents(
-        address fromToken, address fromBridge,
+    function getTokenUri(address fromToken_, uint256 tokenId) public view virtual override
+            validateFromToken(fromToken_, "getTokenUri: Only the token supported by this FromBridge is allowed to be called on")
+            returns (bytes memory) {
+        return super.getTokenUri(fromToken, tokenId);
+    }
+
+    /**
+     * @dev See AbstractFromBridge.
+     * Override "AbstractFromBridge.commit" to add fromToken validation.
+     */
+    function commit(
+        address fromToken_,
         address toToken, address toBridge,
         address tokenOwner, uint256 requestNonce,
-        uint256 tokenId, bytes memory tokenUri,
+        uint256 tokenId,
         bytes32 commitment, uint256 requestTimestamp,
         bytes calldata authnChallenge,
         bytes memory ownerSignature, bytes memory validatorSignature
-    ) internal virtual override {
-        emit Commit(
+    ) public virtual override
+    validateFromToken(fromToken_, "commit: Only the token supported by this FromBridge is allowed to be called on") {
+        super.commit(
+            fromToken_,
             toToken, toBridge,
             tokenOwner, requestNonce,
-            tokenId, tokenUri,
+            tokenId,
             commitment, requestTimestamp,
-            validatorSignature);
+            authnChallenge,
+            ownerSignature, validatorSignature
+        );
     }
 }

@@ -62,16 +62,25 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
      * @dev See IFromBridge.
      */
     function getRequestNonce(address tokenOwner) external view override
-            onlyValidator("GetRequestNonce: Only validator is allowed to get nonce of arbitrary owner") returns (uint256) {
+            onlyValidator("getRequestNonce: Only validator is allowed to get nonce of arbitrary owner") returns (uint256) {
         return _requestNonces[tokenOwner];
     }
 
     /**
      * @dev See IFromBridge.
+     * Child contracts MAY override to add further validation if needed.
+     * @return result of "_getTokenUri" function.
+     */
+    function getTokenUri(address fromToken, uint256 tokenId) public view virtual override returns (bytes memory) {
+        return _getTokenUri(fromToken, tokenId);
+    }
+
+    /**
+     * @dev The internal function of "getTokenUri" function.
      * @return ERC721 tokenURI by default. Child contracts MAY override to implement
      * the URI management scheme of the tokens they served.
      */
-    function getTokenUri(address fromToken, uint256 tokenId) public view virtual override returns (bytes memory) {
+    function _getTokenUri(address fromToken, uint256 tokenId) internal view virtual returns (bytes memory) {
         return abi.encodePacked(IERC721Metadata(fromToken).tokenURI(tokenId));
     }
 
@@ -86,11 +95,11 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
         bytes32 commitment, uint256 requestTimestamp,
         bytes calldata authnChallenge,
         bytes memory ownerSignature, bytes memory validatorSignature
-    ) external virtual override onlyValidator("Commit: Only validator is allowed to commit") {
+    ) public virtual override onlyValidator("commit: Only validator is allowed to commit") {
         address fromBridge = address(this);
         
         // Retrieve token URI.
-        bytes memory tokenUri = getTokenUri(fromToken, tokenId);
+        bytes memory tokenUri = _getTokenUri(fromToken, tokenId);
 
         // Check all requirements to commit.
         _checkCommitRequirements(
@@ -103,7 +112,7 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
             ownerSignature, validatorSignature);
 
         // Process the token.
-        _processToken(fromToken, tokenId);
+        _processToken(fromToken, fromBridge, tokenOwner, tokenId);
 
         // Update nonce.
         _updateNonce(tokenOwner);
@@ -151,7 +160,7 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
                 requestNonce, tokenId,
                 authnChallenge,
                 ownerSignature),
-            "Commit: Invalid owner signature");
+            "commit: Invalid owner signature");
 
         // Verify validator's signature.
         require(
@@ -163,23 +172,23 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
                 tokenUri,
                 commitment, requestTimestamp,
                 validatorSignature),
-            "Commit: Invalid validator signature");
+            "commit: Invalid validator signature");
 
         // Check ownership.
         require(IERC721(fromToken).ownerOf(tokenId) == tokenOwner,
-            "Commit: The token's owner is incorrect");
+            "commit: The token's owner is incorrect");
 
         // Check approval.
         require(IERC721(fromToken).isApprovedForAll(tokenOwner, fromBridge) ||
             IERC721(fromToken).getApproved(tokenId) == fromBridge,
-            "Commit: FromBridge is not approved on token ID");
+            "commit: This FromBridge is not approved on token ID");
 
         // Check nonce.
-        require(_isValidNonce(tokenOwner, requestNonce), "Commit: Invalid nonce");
+        require(_isValidNonce(tokenOwner, requestNonce), "commit: Invalid nonce");
 
         // Check request timestamp's validity (i.e. occured in the past).
         require(block.timestamp > requestTimestamp,
-            "Commit: Request timestamp must be in the past");
+            "commit: Request timestamp must be in the past");
     }
 
     /**
@@ -187,8 +196,13 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
      * by overriding this function. For example, if the bridging process allows the owner to
      * get the token back, the processing action will be transfer the token to FromBridge.
      */
-    function _processToken(address fromToken, uint256 tokenId) internal virtual {
-        ERC721Burnable(address(fromToken)).burn(tokenId);
+    function _processToken(
+        address fromToken,
+        address fromBridge,
+        address tokenOwner,
+        uint256 tokenId
+    ) internal virtual {
+        ERC721Burnable(fromToken).burn(tokenId);
     }
 
     /**
@@ -220,5 +234,13 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
         bytes32 commitment, uint256 requestTimestamp,
         bytes calldata authnChallenge,
         bytes memory ownerSignature, bytes memory validatorSignature
-    ) internal virtual;
+    ) internal virtual {
+        emit Commit(
+            fromToken,
+            toToken, toBridge,
+            tokenOwner, requestNonce,
+            tokenId, tokenUri,
+            commitment, requestTimestamp,
+            validatorSignature);
+    }
 }
