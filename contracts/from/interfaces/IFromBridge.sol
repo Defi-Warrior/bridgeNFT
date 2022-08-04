@@ -1,7 +1,27 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 interface IFromBridge {
+
+    struct Origin {
+        address fromToken;
+        address fromBridge;
+    }
+
+    struct Destination {
+        address toToken;
+        address toBridge;
+    }
+
+    struct RequestId {
+        address tokenOwner;
+        uint256 requestNonce;
+    }
+
+    struct TokenInfo {
+        uint256 tokenId;
+        bytes tokenUri;
+    }
 
     event Commit(
         address indexed fromToken,
@@ -10,7 +30,6 @@ interface IFromBridge {
         address indexed tokenOwner,
         uint256 indexed requestNonce,
         uint256         tokenId,
-        bytes           tokenUri,
         bytes32         commitment,
         uint256         requestTimestamp,
         bytes           validatorSignature);
@@ -43,10 +62,12 @@ interface IFromBridge {
      * is successfully executed. The processing action is either permanent burning or holding
      * custody of the token, depending on implementation.
      * @param fromToken Address (Ethereum format) of fromToken.
-     * @param toToken Address (Ethereum format) of toToken.
-     * @param toBridge Address (Ethereum format) of toBridge.
-     * @param tokenOwner The owner of the requested token.
-     * @param requestNonce The request's nonce.
+     * @param destination Consists of:
+     * - toToken: Address (Ethereum format) of toToken.
+     * - toBridge: Address (Ethereum format) of toBridge.
+     * @param requestId Consists of:
+     * - tokenOwner: The owner of the requested token.
+     * - requestNonce: The request's nonce.
      * @param tokenId The ID of the requested token.
      * @param commitment The validator's commitment.
      * @param requestTimestamp The timestamp when the validator received request.
@@ -62,8 +83,8 @@ interface IFromBridge {
      */
     function commit(
         address fromToken,
-        address toToken, address toBridge,
-        address tokenOwner, uint256 requestNonce,
+        Destination calldata destination,
+        RequestId calldata requestId,
         uint256 tokenId,
         bytes32 commitment, uint256 requestTimestamp,
         bytes calldata authnChallenge,

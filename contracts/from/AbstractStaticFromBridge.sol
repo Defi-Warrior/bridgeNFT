@@ -1,25 +1,36 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
+import "./interfaces/IStaticFromBridge.sol";
 import "./AbstractFromBridge.sol";
 
-abstract contract AbstractStaticFromBridge is AbstractFromBridge {
-
+/**
+ * @title AbstractStaticFromBridge
+ * @dev 
+ */
+abstract contract AbstractStaticFromBridge is IStaticFromBridge, AbstractFromBridge {
     /**
      * Address (Ethereum format) of the token this FromBridge serves.
      */
-    address public fromToken;
+    address private immutable _fromToken;
 
-    modifier validateFromToken(address fromToken_, string memory errorMessage) {
-        require(fromToken_ == fromToken, errorMessage);
+    modifier validateFromToken(address fromToken, string memory errorMessage) {
+        require(fromToken == _fromToken, errorMessage);
         _;
     }
 
     /**
      * @dev Constructor
      */
-    constructor(address validator_, address fromToken_) AbstractFromBridge(validator_) {
-        fromToken = fromToken_;
+    constructor(address fromToken) {
+        _fromToken = fromToken;
+    }
+
+    /**
+     * @dev "_fromToken" getter.
+     */
+    function getFromToken() public view override returns(address) {
+        return _fromToken;
     }
 
     /**
@@ -27,8 +38,8 @@ abstract contract AbstractStaticFromBridge is AbstractFromBridge {
      * Override "AbstractFromBridge.getTokenUri" to add fromToken validation.
      * @return result of "super.getTokenUri" function.
      */
-    function getTokenUri(address fromToken_, uint256 tokenId) public view virtual override
-            validateFromToken(fromToken_, "getTokenUri: Only the token supported by this FromBridge is allowed to be called on")
+    function getTokenUri(address fromToken, uint256 tokenId) public view virtual override(IFromBridge, AbstractFromBridge)
+            validateFromToken(fromToken, "getTokenUri: Only the token supported by this FromBridge is allowed to be called on")
             returns (bytes memory) {
         return super.getTokenUri(fromToken, tokenId);
     }
@@ -38,19 +49,19 @@ abstract contract AbstractStaticFromBridge is AbstractFromBridge {
      * Override "AbstractFromBridge.commit" to add fromToken validation.
      */
     function commit(
-        address fromToken_,
-        address toToken, address toBridge,
-        address tokenOwner, uint256 requestNonce,
+        address fromToken,
+        Destination calldata destination,
+        RequestId calldata requestId,
         uint256 tokenId,
         bytes32 commitment, uint256 requestTimestamp,
         bytes calldata authnChallenge,
         bytes memory ownerSignature, bytes memory validatorSignature
-    ) public virtual override
-    validateFromToken(fromToken_, "commit: Only the token supported by this FromBridge is allowed to be called on") {
+    ) public virtual override(IFromBridge, AbstractFromBridge)
+    validateFromToken(fromToken, "commit: Only the token supported by this FromBridge is allowed to be called on") {
         super.commit(
-            fromToken_,
-            toToken, toBridge,
-            tokenOwner, requestNonce,
+            fromToken,
+            destination,
+            requestId,
             tokenId,
             commitment, requestTimestamp,
             authnChallenge,
