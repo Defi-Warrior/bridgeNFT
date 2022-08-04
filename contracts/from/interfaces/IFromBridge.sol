@@ -1,8 +1,9 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.4;
 
-interface IFromBridge {
+import "./events/IFromBridgeEvents.sol";
 
+interface IFromBridge is IFromBridgeEvents {
     struct Origin {
         address fromToken;
         address fromBridge;
@@ -20,19 +21,8 @@ interface IFromBridge {
 
     struct TokenInfo {
         uint256 tokenId;
-        bytes tokenUri;
+        bytes   tokenUri;
     }
-
-    event Commit(
-        address indexed fromToken,
-        address         toToken,
-        address         toBridge,
-        address indexed tokenOwner,
-        uint256 indexed requestNonce,
-        uint256         tokenId,
-        bytes32         commitment,
-        uint256         requestTimestamp,
-        bytes           validatorSignature);
         
     /**
      * @dev Users call to get nonce before requesting the validator for token bridging.
@@ -74,12 +64,12 @@ interface IFromBridge {
      * @param authnChallenge The challenge for user authentication to validator.
      * @param ownerSignature This signature is signed by the token's owner, and is the prove
      * that the owner indeed requested the token to be bridged.
-     * For message format, see "verifyOwnerSignature" function in "Signature.sol" contract.
+     * For message format, see "OwnerSignature" library in "Signature.sol" contract.
      * @param validatorSignature This signature was signed by the validator after verifying
      * that the requester is the token's owner and FromBridge is approved on this token.
      * The owner will use this signature at ToBridge to acquire or claim a new token
      * (which shall be identical to the old one) on the other chain.
-     * For message format, see "verifyValidatorSignature" function in "Signature.sol" contract.
+     * For message format, see "ValidatorSignature" library in "Signature.sol" contract.
      */
     function commit(
         address fromToken,

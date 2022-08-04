@@ -1,12 +1,12 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
-import "../../AbstractStaticFromBridge.sol";
+import "../../../StaticHoldingFromBridge.sol";
 
 import "./interfaces/IWarrior.sol";
 import "./interfaces/IBodyPart.sol";
 
-contract DefiWarriorFromBridge is AbstractStaticFromBridge {
+contract DefiWarriorFromBridge is StaticHoldingFromBridge {
 
     /**
      * Address (Ethereum format) of the validator that provides owner signature
@@ -17,8 +17,7 @@ contract DefiWarriorFromBridge is AbstractStaticFromBridge {
     /**
      * @dev Constructor
      */
-    constructor(address validator_, address fromToken_, address fromBodyPart_)
-            AbstractStaticFromBridge(validator_, fromToken_) {
+    constructor(address validator_, address fromToken, address fromBodyPart_) StaticHoldingFromBridge(validator_, fromToken) {
         fromBodyPart = fromBodyPart_;
     }
 
@@ -34,19 +33,7 @@ contract DefiWarriorFromBridge is AbstractStaticFromBridge {
             bodyPartAttributes[i] = IBodyPart(fromBodyPart).getAttributeAt(partIds[i]);
         }
 
-        bytes memory tokenUri = abi.encodePacked(IWarrior(fromToken).getAttributeAt(tokenId), bodyPartAttributes);
+        bytes memory tokenUri = abi.encode(IWarrior(fromToken).getAttributeAt(tokenId), bodyPartAttributes);
         return tokenUri;
-    }
-
-    /**
-     * @dev 
-     */
-    function _processToken(
-        address fromToken,
-        address fromBridge,
-        address tokenOwner,
-        uint256 tokenId
-    ) internal virtual override {
-        IERC721(fromToken).transferFrom(tokenOwner, fromBridge, tokenId);
     }
 }
