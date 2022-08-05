@@ -23,10 +23,15 @@ interface IFromBridge is IFromBridgeEvents {
         uint256 tokenId;
         bytes   tokenUri;
     }
+
+    /**
+     * @dev "validator" getter.
+     */
+    function validator() external view returns (address);
         
     /**
      * @dev Users call to get nonce before requesting the validator for token bridging.
-     * @return nonce The current request nonce associated with the message sender.
+     * @return The current request nonce associated with the message sender.
      */
     function getRequestNonce() external view returns (uint256);
 
@@ -34,7 +39,7 @@ interface IFromBridge is IFromBridgeEvents {
      * @dev After receive a request from a user, the validator calls to get the right nonce
      * then compare with the nonce sent by that user.
      * @param tokenOwner The owner of the requested token.
-     * @return nonce The current request nonce associated with that owner.
+     * @return The current request nonce associated with that owner.
      */
     function getRequestNonce(address tokenOwner) external view returns (uint256);
 
@@ -43,8 +48,30 @@ interface IFromBridge is IFromBridgeEvents {
     * implement the URI management scheme suitable for their respective tokens.
      * @param fromToken Address (Ethereum format) of fromToken.
      * @param tokenId The token ID.
+     * @return The token URI.
      */
     function getTokenUri(address fromToken, uint256 tokenId) external view returns (bytes memory);
+
+    /**
+     * Users call this function after the commit transaction to retrieve the validator's signature.
+     * @param requestNonce: The request's nonce.
+     * @return The validator signature associated with the request determined by
+     * the token owner who is the message sender and the specified nonce.
+     */
+    function getValidatorSignature(uint256 requestNonce)
+        external view returns (bytes memory);
+
+    /**
+     * @dev This function is used for inspection purpose and MUST be made only callable
+     * by account(s) with administrative rights.
+     * @param requestId Consists of:
+     * - tokenOwner: The owner of the requested token.
+     * - requestNonce: The request's nonce.
+     * @return Address (Ethereum format) of the validator who processed the specified request
+     * and the associated signature.
+     */
+    function getValidatorSignature(RequestId calldata requestId)
+        external view returns (address, bytes memory);
 
     /**
      * @dev This function is called only by the validator to submit the commitment

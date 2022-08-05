@@ -17,11 +17,16 @@ import "../utils/Signature.sol";
  * depending on implementation.
  */
 abstract contract AbstractFromBridge is IFromBridge, Ownable {
+    struct ValidatorAndSignature {
+        address validator;
+        bytes   signature;
+    }
+
     /**
      * Address (Ethereum format) of the validator that provides owner signature
      * and "secret" to obtain the new token on the other chain.
      */
-    address public validator;
+    address public override validator;
 
     /**
      * Mapping from owner's address -> nonce.
@@ -30,20 +35,27 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
      */
     mapping(address => uint256) internal _requestNonces;
 
+    /**
+     * Mapping from owner's address -> nonce -> validator's signature.
+     * A combination (owner, nonce) uniquely identifies a request.
+     * This mapping stores one validator's signature for every request.
+     */
+    mapping(address => mapping(uint256 => ValidatorAndSignature)) internal _validatorSignatures;
+
     modifier onlyValidator(string memory errorMessage) {
         require(msg.sender == validator, errorMessage);
         _;
     }
 
     /**
-     * @dev Constructor
+     * @dev Constructor.
      */
     constructor(address validator_) {
         validator = validator_;
     }
 
     /**
-     * @dev "validator" setter
+     * @dev "validator" setter.
      */
     function setValidator(address newValidator) external onlyOwner {
         validator = newValidator;
@@ -83,7 +95,32 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
     }
 
     /**
-     * @dev See IFromBridge
+     * @dev See IFromBridge.
+     */
+    function getValidatorSignature(uint256 requestNonce)
+            external view virtual override returns (bytes memory) {
+        ValidatorAndSignature storage validatorAndSignature
+            = _validatorSignatures[msg.sender][requestNonce];
+
+        require(validatorAndSignature.validator == validator,
+            "getValidatorSignature: The validator who signed this signature has been revoked");
+
+        return validatorAndSignature.signature;
+    }
+
+    /**
+     * @dev See IFromBridge.
+     */
+    function getValidatorSignature(RequestId calldata requestId)
+            external view override onlyOwner returns (address, bytes memory) {
+        ValidatorAndSignature storage validatorAndSignature =
+            _validatorSignatures[requestId.tokenOwner][requestId.requestNonce];
+        
+        return (validatorAndSignature.validator, validatorAndSignature.signature);
+    }
+
+    /**
+     * @dev See IFromBridge.
      */
     function commit(
         address fromToken,
@@ -112,8 +149,15 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
         // Process the token.
         _processToken(origin, requestId.tokenOwner, tokenId);
 
-        // Update nonce.
-        _updateNonce(requestId.tokenOwner);
+        // Update all state variables needed.
+        _updateState(
+            origin,
+            destination,
+            requestId,
+            tokenInfo,
+            commitment, requestTimestamp,
+            authnChallenge,
+            ownerSignature, validatorSignature);
 
         // Emit all events needed.
         _emitEvents(
@@ -153,10 +197,11 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
         require(
             OwnerSignature.verify(
                 requestId.tokenOwner,
-                origin.fromToken, origin.fromBridge,
-                destination.toToken, destination.toBridge,
-                requestId.requestNonce, tokenInfo.tokenId,
-                authnChallenge,
+                OwnerSignature.MessageContainer(
+                    origin.fromToken, origin.fromBridge,
+                    destination.toToken, destination.toBridge,
+                    requestId.requestNonce, tokenInfo.tokenId,
+                    authnChallenge),
                 ownerSignature),
             "commit: Invalid owner signature");
 
@@ -164,11 +209,12 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
         require(
             ValidatorSignature.verify(
                 validator,
-                origin.fromToken, origin.fromBridge,
-                destination.toToken, destination.toBridge,
-                requestId.tokenOwner, tokenInfo.tokenId,
-                tokenInfo.tokenUri,
-                commitment, requestTimestamp,
+                ValidatorSignature.MessageContainer(
+                    origin.fromToken, origin.fromBridge,
+                    destination.toToken, destination.toBridge,
+                    requestId.tokenOwner,
+                    tokenInfo.tokenId, tokenInfo.tokenUri,
+                    commitment, requestTimestamp),
                 validatorSignature),
             "commit: Invalid validator signature");
 
@@ -204,10 +250,41 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
     }
 
     /**
+     * @dev Save or update all the state variables needed.
+     * Child contracts MAY override if they had other state variables needing to be saved or updated.
+     * In that case, super._updateState() MUST be called to keep the parent contracts' state consistent.
+     * Parameters are the same as "_checkCommitRequirements" function. All values are put in parameter
+     * to cover all possible cases.
+     */
+    function _updateState(
+        Origin memory origin,
+        Destination calldata destination,
+        RequestId calldata requestId,
+        TokenInfo memory tokenInfo,
+        bytes32 commitment, uint256 requestTimestamp,
+        bytes calldata authnChallenge,
+        bytes memory ownerSignature, bytes memory validatorSignature
+    ) internal virtual {
+        // Update nonce.
+        _updateNonce(requestId.tokenOwner);
+
+        // Save validator signature for this request.
+        _saveValidatorSignature(requestId, validatorSignature);
+    }
+
+    /**
      * @dev Update nonce. Only increase by 1.
      */
     function _updateNonce(address tokenOwner) internal virtual {
         _requestNonces[tokenOwner]++;
+    }
+
+    /**
+     * @dev Save the validator who processed the specified request and the associated signature.
+     */
+    function _saveValidatorSignature(RequestId calldata requestId, bytes memory validatorSignature) internal virtual {
+        _validatorSignatures[requestId.tokenOwner][requestId.requestNonce] =
+            ValidatorAndSignature(validator, validatorSignature);
     }
 
     /**
@@ -230,7 +307,6 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
             destination.toToken, destination.toBridge,
             requestId.tokenOwner, requestId.requestNonce,
             tokenInfo.tokenId,
-            commitment, requestTimestamp,
-            validatorSignature);
+            commitment, requestTimestamp);
     }
 }

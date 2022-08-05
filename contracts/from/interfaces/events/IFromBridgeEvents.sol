@@ -10,6 +10,5 @@ interface IFromBridgeEvents {
         uint256 indexed requestNonce,
         uint256         tokenId,
         bytes32         commitment,
-        uint256         requestTimestamp,
-        bytes           validatorSignature);
+        uint256         requestTimestamp);
 }
