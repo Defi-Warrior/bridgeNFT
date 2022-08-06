@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 
@@ -8,7 +8,7 @@ import "./AbstractFromBridge.sol";
 
 /**
  * @title AbstractBurningFromBridge
- * @dev 
+ * @dev The version of FromBridge that burns the requested tokens.
  */
 abstract contract AbstractBurningFromBridge is IBurningFromBridge, AbstractFromBridge {
     /**
@@ -36,6 +36,7 @@ abstract contract AbstractBurningFromBridge is IBurningFromBridge, AbstractFromB
         bytes calldata authnChallenge,
         bytes memory ownerSignature, bytes memory validatorSignature
     ) internal virtual override {
+        // Will call "AbstractFromBridge._emitEvents" function.
         super._emitEvents(
             origin,
             destination,

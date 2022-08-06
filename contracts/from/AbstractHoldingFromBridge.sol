@@ -1,11 +1,12 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.0;
 
 import "./AbstractFromBridge.sol";
 
 /**
  * @title AbstractHoldingFromBridge
- * @dev 
+ * @dev The version of FromBridge that holds the requested tokens.
+ * There is no functionality that transfers tokens out. Child contracts MAY implement if desired.
  */
 abstract contract AbstractHoldingFromBridge is AbstractFromBridge {
     /**

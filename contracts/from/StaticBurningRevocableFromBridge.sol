@@ -1,25 +1,27 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.0;
 
 import "./AbstractStaticFromBridge.sol";
 import "./AbstractBurningFromBridge.sol";
+import "./AbstractRevocableFromBridge.sol";
 
 /**
- * @title StaticBurningFromBridge
- * @dev 
+ * @title StaticBurningRevocableFromBridge
+ * @dev The version of FromBridge that is "static", "burning" and "revocable".
+ * See respective parent contracts for further explanations.
  */
-contract StaticBurningFromBridge is AbstractStaticFromBridge, AbstractBurningFromBridge {
+contract StaticBurningRevocableFromBridge is AbstractStaticFromBridge, AbstractBurningFromBridge, AbstractRevocableFromBridge {
     /**
-     * @dev Constructor
+     * @dev Constructor.
      */
-    constructor(address validator_, address fromToken) AbstractFromBridge(validator_) AbstractStaticFromBridge(fromToken) {}
+    constructor(address validator, address fromToken) AbstractFromBridge(validator) AbstractStaticFromBridge(fromToken) {}
 
     /**
      * @dev See AbstractStaticFromBridge.
      * @return result of "super.getTokenUri" function.
      */
     function getTokenUri(address fromToken, uint256 tokenId) public view virtual
-            override(IFromBridge, AbstractStaticFromBridge) returns (bytes memory) {
+            override(IFromBridge, AbstractFromBridge, AbstractStaticFromBridge) returns(bytes memory) {
         // Will call "AbstractStaticFromBridge.getTokenUri" function.
         return super.getTokenUri(fromToken, tokenId);
     }
@@ -35,7 +37,7 @@ contract StaticBurningFromBridge is AbstractStaticFromBridge, AbstractBurningFro
         bytes32 commitment, uint256 requestTimestamp,
         bytes calldata authnChallenge,
         bytes memory ownerSignature, bytes memory validatorSignature
-    ) public virtual override(IFromBridge, AbstractStaticFromBridge) {
+    ) public virtual override(IFromBridge, AbstractFromBridge, AbstractStaticFromBridge) {
         // Will call "AbstractStaticFromBridge.commit" function.
         super.commit(
             fromToken,
@@ -81,5 +83,14 @@ contract StaticBurningFromBridge is AbstractStaticFromBridge, AbstractBurningFro
             commitment, requestTimestamp,
             authnChallenge,
             ownerSignature, validatorSignature);
+    }
+
+    /**
+     * @dev See AbstractRevocableFromBridge.
+     */
+    function getValidatorSignature(uint256 requestNonce) public view virtual
+            override(IFromBridge, AbstractFromBridge, AbstractRevocableFromBridge) returns(bytes memory) {
+        // Will call "AbstractRevocableFromBridge.getValidatorSignature" function.
+        return super.getValidatorSignature(requestNonce);
     }
 }

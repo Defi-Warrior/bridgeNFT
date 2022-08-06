@@ -1,12 +1,13 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.0;
 
 import "./interfaces/IStaticFromBridge.sol";
 import "./AbstractFromBridge.sol";
 
 /**
  * @title AbstractStaticFromBridge
- * @dev 
+ * @dev The version of FromBridge that works with only one specific FromToken due to
+ * the non-standard URI of that token. Hence "static" in the name.
  */
 abstract contract AbstractStaticFromBridge is IStaticFromBridge, AbstractFromBridge {
     /**
@@ -20,7 +21,7 @@ abstract contract AbstractStaticFromBridge is IStaticFromBridge, AbstractFromBri
     }
 
     /**
-     * @dev Constructor
+     * @dev Constructor.
      */
     constructor(address fromToken) {
         _fromToken = fromToken;
@@ -40,7 +41,8 @@ abstract contract AbstractStaticFromBridge is IStaticFromBridge, AbstractFromBri
      */
     function getTokenUri(address fromToken, uint256 tokenId) public view virtual override(IFromBridge, AbstractFromBridge)
             validateFromToken(fromToken, "getTokenUri: Only the token supported by this FromBridge is allowed to be called on")
-            returns (bytes memory) {
+            returns(bytes memory) {
+        // Will call "AbstractFromBridge.getTokenUri" function.
         return super.getTokenUri(fromToken, tokenId);
     }
 
@@ -58,6 +60,7 @@ abstract contract AbstractStaticFromBridge is IStaticFromBridge, AbstractFromBri
         bytes memory ownerSignature, bytes memory validatorSignature
     ) public virtual override(IFromBridge, AbstractFromBridge)
     validateFromToken(fromToken, "commit: Only the token supported by this FromBridge is allowed to be called on") {
+        // Will call "AbstractFromBridge.commit" function.
         super.commit(
             fromToken,
             destination,

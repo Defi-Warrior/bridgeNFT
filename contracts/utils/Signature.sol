@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -39,7 +39,7 @@ library OwnerSignature {
         address tokenOwner,
         MessageContainer memory messageContainer,
         bytes memory signature
-    ) internal view returns (bool) {
+    ) internal view returns(bool) {
         bytes32 messageHash = _toMessageHash(messageContainer);
 
         return SignatureChecker.isValidSignatureNow(tokenOwner, messageHash, signature);
@@ -55,7 +55,7 @@ library OwnerSignature {
      * before concatenating for security reason.
      * @return The message hash.
      */
-    function _toMessageHash(MessageContainer memory messageContainer) private pure returns (bytes32) {
+    function _toMessageHash(MessageContainer memory messageContainer) private pure returns(bytes32) {
         return ECDSA.toEthSignedMessageHash( abi.encodePacked("RequestBridge",
             messageContainer.fromToken, messageContainer.fromBridge,
             messageContainer.toToken, messageContainer.toBridge,
@@ -106,7 +106,7 @@ library ValidatorSignature {
         address validator,
         MessageContainer memory messageContainer,
         bytes memory signature
-    ) internal view returns (bool) {
+    ) internal view returns(bool) {
         bytes32 messageHash = _toMessageHash(messageContainer);
 
         return SignatureChecker.isValidSignatureNow(validator, messageHash, signature);
@@ -122,7 +122,7 @@ library ValidatorSignature {
      * before concatenating for security reason.
      * @return The message hash.
      */
-    function _toMessageHash(MessageContainer memory messageContainer) private pure returns (bytes32) {
+    function _toMessageHash(MessageContainer memory messageContainer) private pure returns(bytes32) {
         return ECDSA.toEthSignedMessageHash( abi.encodePacked("Commit",
             messageContainer.fromToken, messageContainer.fromBridge,
             messageContainer.toToken, messageContainer.toBridge,

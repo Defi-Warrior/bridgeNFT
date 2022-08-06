@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.0;
 
 import "./events/IFromBridgeEvents.sol";
 
@@ -25,15 +25,15 @@ interface IFromBridge is IFromBridgeEvents {
     }
 
     /**
-     * @dev "validator" getter.
+     * @dev "_validator" getter.
      */
-    function validator() external view returns (address);
+    function getValidator() external view returns(address);
         
     /**
      * @dev Users call to get nonce before requesting the validator for token bridging.
      * @return The current request nonce associated with the message sender.
      */
-    function getRequestNonce() external view returns (uint256);
+    function getRequestNonce() external view returns(uint256);
 
     /**
      * @dev After receive a request from a user, the validator calls to get the right nonce
@@ -41,7 +41,7 @@ interface IFromBridge is IFromBridgeEvents {
      * @param tokenOwner The owner of the requested token.
      * @return The current request nonce associated with that owner.
      */
-    function getRequestNonce(address tokenOwner) external view returns (uint256);
+    function getRequestNonce(address tokenOwner) external view returns(uint256);
 
     /**
      * @dev URI management scheme may vary for each token. So child contracts MAY
@@ -50,7 +50,7 @@ interface IFromBridge is IFromBridgeEvents {
      * @param tokenId The token ID.
      * @return The token URI.
      */
-    function getTokenUri(address fromToken, uint256 tokenId) external view returns (bytes memory);
+    function getTokenUri(address fromToken, uint256 tokenId) external view returns(bytes memory);
 
     /**
      * Users call this function after the commit transaction to retrieve the validator's signature.
@@ -59,7 +59,7 @@ interface IFromBridge is IFromBridgeEvents {
      * the token owner who is the message sender and the specified nonce.
      */
     function getValidatorSignature(uint256 requestNonce)
-        external view returns (bytes memory);
+        external view returns(bytes memory);
 
     /**
      * @dev This function is used for inspection purpose and MUST be made only callable
@@ -71,7 +71,7 @@ interface IFromBridge is IFromBridgeEvents {
      * and the associated signature.
      */
     function getValidatorSignature(RequestId calldata requestId)
-        external view returns (address, bytes memory);
+        external view returns(address, bytes memory);
 
     /**
      * @dev This function is called only by the validator to submit the commitment

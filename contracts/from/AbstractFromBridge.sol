@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -26,7 +26,7 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
      * Address (Ethereum format) of the validator that provides owner signature
      * and "secret" to obtain the new token on the other chain.
      */
-    address public override validator;
+    address internal _validator;
 
     /**
      * Mapping from owner's address -> nonce.
@@ -36,35 +36,40 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
     mapping(address => uint256) internal _requestNonces;
 
     /**
-     * Mapping from owner's address -> nonce -> validator's signature.
+     * Mapping from owner's address -> nonce -> [validator + validator's signature].
      * A combination (owner, nonce) uniquely identifies a request.
-     * This mapping stores one validator's signature for every request.
+     * This mapping stores one pair of validator's address and signature for every request.
      */
-    mapping(address => mapping(uint256 => ValidatorAndSignature)) internal _validatorSignatures;
+    mapping(address => mapping(uint256 => ValidatorAndSignature)) internal _validatorAndSignatures;
+
+    modifier onlyAdmin(string memory errorMessage) {
+        require(msg.sender == owner(), errorMessage);
+        _;
+    }
 
     modifier onlyValidator(string memory errorMessage) {
-        require(msg.sender == validator, errorMessage);
+        require(msg.sender == _validator, errorMessage);
         _;
     }
 
     /**
      * @dev Constructor.
      */
-    constructor(address validator_) {
-        validator = validator_;
-    }
-
-    /**
-     * @dev "validator" setter.
-     */
-    function setValidator(address newValidator) external onlyOwner {
-        validator = newValidator;
+    constructor(address validator) {
+        _validator = validator;
     }
 
     /**
      * @dev See IFromBridge.
      */
-    function getRequestNonce() external view override returns (uint256) {
+    function getValidator() external view override returns(address) {
+        return _validator;
+    }
+
+    /**
+     * @dev See IFromBridge.
+     */
+    function getRequestNonce() external view override returns(uint256) {
         return _requestNonces[msg.sender];
     }
 
@@ -72,7 +77,7 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
      * @dev See IFromBridge.
      */
     function getRequestNonce(address tokenOwner) external view override
-            onlyValidator("getRequestNonce: Only validator is allowed to get nonce of arbitrary owner") returns (uint256) {
+            onlyValidator("getRequestNonce: Only validator can get nonce of arbitrary owner") returns(uint256) {
         return _requestNonces[tokenOwner];
     }
 
@@ -81,7 +86,7 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
      * Child contracts MAY override to add further validation if needed.
      * @return result of "_getTokenUri" function.
      */
-    function getTokenUri(address fromToken, uint256 tokenId) public view virtual override returns (bytes memory) {
+    function getTokenUri(address fromToken, uint256 tokenId) public view virtual override returns(bytes memory) {
         return _getTokenUri(fromToken, tokenId);
     }
 
@@ -90,7 +95,7 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
      * @return ERC721 tokenURI by default. Child contracts MAY override to implement
      * the URI management scheme of the tokens they served.
      */
-    function _getTokenUri(address fromToken, uint256 tokenId) internal view virtual returns (bytes memory) {
+    function _getTokenUri(address fromToken, uint256 tokenId) internal view virtual returns(bytes memory) {
         return abi.encodePacked(IERC721Metadata(fromToken).tokenURI(tokenId));
     }
 
@@ -98,25 +103,20 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
      * @dev See IFromBridge.
      */
     function getValidatorSignature(uint256 requestNonce)
-            external view virtual override returns (bytes memory) {
-        ValidatorAndSignature storage validatorAndSignature
-            = _validatorSignatures[msg.sender][requestNonce];
-
-        require(validatorAndSignature.validator == validator,
-            "getValidatorSignature: The validator who signed this signature has been revoked");
-
-        return validatorAndSignature.signature;
+            public view virtual override returns(bytes memory) {
+        return _validatorAndSignatures[msg.sender][requestNonce].signature;
     }
 
     /**
      * @dev See IFromBridge.
      */
-    function getValidatorSignature(RequestId calldata requestId)
-            external view override onlyOwner returns (address, bytes memory) {
-        ValidatorAndSignature storage validatorAndSignature =
-            _validatorSignatures[requestId.tokenOwner][requestId.requestNonce];
+    function getValidatorSignature(RequestId calldata requestId) public view virtual override
+            onlyAdmin("getValidatorSignature: Only admin can get validator signature of arbitrary request")
+            returns(address, bytes memory) {
+        ValidatorAndSignature storage valAndSig =
+            _validatorAndSignatures[requestId.tokenOwner][requestId.requestNonce];
         
-        return (validatorAndSignature.validator, validatorAndSignature.signature);
+        return (valAndSig.validator, valAndSig.signature);
     }
 
     /**
@@ -130,7 +130,7 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
         bytes32 commitment, uint256 requestTimestamp,
         bytes calldata authnChallenge,
         bytes memory ownerSignature, bytes memory validatorSignature
-    ) public virtual override onlyValidator("commit: Only validator is allowed to commit") {
+    ) public virtual override onlyValidator("commit: Only validator can commit") {
 
         Origin memory origin = Origin(fromToken, address(this));
         TokenInfo memory tokenInfo = TokenInfo(tokenId, _getTokenUri(fromToken, tokenId));
@@ -208,7 +208,7 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
         // Verify validator's signature.
         require(
             ValidatorSignature.verify(
-                validator,
+                _validator,
                 ValidatorSignature.MessageContainer(
                     origin.fromToken, origin.fromBridge,
                     destination.toToken, destination.toBridge,
@@ -245,7 +245,7 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
      * @dev Validate request's nonce. Only check equality.
      */
     function _isValidNonce(address tokenOwner, uint256 requestNonce)
-    internal virtual view returns (bool) {
+    internal virtual view returns(bool) {
         return _requestNonces[tokenOwner] == requestNonce;
     }
 
@@ -283,8 +283,8 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
      * @dev Save the validator who processed the specified request and the associated signature.
      */
     function _saveValidatorSignature(RequestId calldata requestId, bytes memory validatorSignature) internal virtual {
-        _validatorSignatures[requestId.tokenOwner][requestId.requestNonce] =
-            ValidatorAndSignature(validator, validatorSignature);
+        _validatorAndSignatures[requestId.tokenOwner][requestId.requestNonce] =
+            ValidatorAndSignature(_validator, validatorSignature);
     }
 
     /**

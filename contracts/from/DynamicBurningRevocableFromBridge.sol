@@ -1,18 +1,20 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.0;
 
 import "./AbstractDynamicFromBridge.sol";
 import "./AbstractBurningFromBridge.sol";
+import "./AbstractRevocableFromBridge.sol";
 
 /**
- * @title DynamicBurningFromBridge
- * @dev 
+ * @title DynamicBurningRevocableFromBridge
+ * @dev The version of FromBridge that is "dynamic", "burning" and "revocable".
+ * See respective parent contracts for further explanations.
  */
-contract DynamicBurningFromBridge is AbstractDynamicFromBridge, AbstractBurningFromBridge {
+contract DynamicBurningRevocableFromBridge is AbstractDynamicFromBridge, AbstractBurningFromBridge, AbstractRevocableFromBridge {
     /**
-     * @dev Constructor
+     * @dev Constructor.
      */
-    constructor(address validator_) AbstractFromBridge(validator_) {}
+    constructor(address validator) AbstractFromBridge(validator) {}
 
     /**
      * @dev See AbstractBurningFromBridge.
@@ -47,5 +49,14 @@ contract DynamicBurningFromBridge is AbstractDynamicFromBridge, AbstractBurningF
             commitment, requestTimestamp,
             authnChallenge,
             ownerSignature, validatorSignature);
+    }
+
+    /**
+     * @dev See AbstractRevocableFromBridge.
+     */
+    function getValidatorSignature(uint256 requestNonce) public view virtual
+            override(IFromBridge, AbstractFromBridge, AbstractRevocableFromBridge) returns(bytes memory) {
+        // Will call "AbstractRevocableFromBridge.getValidatorSignature" function.
+        return super.getValidatorSignature(requestNonce);
     }
 }
