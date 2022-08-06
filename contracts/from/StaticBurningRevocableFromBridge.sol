@@ -65,7 +65,7 @@ contract StaticBurningRevocableFromBridge is AbstractStaticFromBridge, AbstractB
     /**
      * @dev See AbstractBurningFromBridge.
      */
-    function _emitEvents(
+    function _emitEventsWhenCommit(
         Origin memory origin,
         Destination calldata destination,
         RequestId calldata requestId,
@@ -74,8 +74,8 @@ contract StaticBurningRevocableFromBridge is AbstractStaticFromBridge, AbstractB
         bytes calldata authnChallenge,
         bytes memory ownerSignature, bytes memory validatorSignature
     ) internal virtual override(AbstractFromBridge, AbstractBurningFromBridge) {
-        // Will call "AbstractBurningFromBridge._emitEvents" function.
-        super._emitEvents(
+        // Will call "AbstractBurningFromBridge._emitEventsWhenCommit" function.
+        super._emitEventsWhenCommit(
             origin,
             destination,
             requestId,

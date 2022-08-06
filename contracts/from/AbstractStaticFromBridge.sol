@@ -10,6 +10,8 @@ import "./AbstractFromBridge.sol";
  * the non-standard URI of that token. Hence "static" in the name.
  */
 abstract contract AbstractStaticFromBridge is IStaticFromBridge, AbstractFromBridge {
+    using Address for address;
+
     /**
      * Address (Ethereum format) of the token this FromBridge serves.
      */
@@ -24,7 +26,20 @@ abstract contract AbstractStaticFromBridge is IStaticFromBridge, AbstractFromBri
      * @dev Constructor.
      */
     constructor(address fromToken) {
+        // Check all FromToken requirements.
+        _checkFromTokenRequirements(fromToken);
+
         _fromToken = fromToken;
+    }
+
+    /**
+     * @dev Check all FromToken requirements.
+     *
+     * Currently the checks are:
+     * - FromToken is a contract.
+     */
+    function _checkFromTokenRequirements(address fromToken) internal view virtual {
+        require(fromToken.isContract(), "AbstractStaticFromBridge.constructor: FromToken must be a contract");
     }
 
     /**

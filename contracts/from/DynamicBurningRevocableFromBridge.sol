@@ -31,7 +31,7 @@ contract DynamicBurningRevocableFromBridge is AbstractDynamicFromBridge, Abstrac
     /**
      * @dev See AbstractBurningFromBridge.
      */
-    function _emitEvents(
+    function _emitEventsWhenCommit(
         Origin memory origin,
         Destination calldata destination,
         RequestId calldata requestId,
@@ -40,8 +40,8 @@ contract DynamicBurningRevocableFromBridge is AbstractDynamicFromBridge, Abstrac
         bytes calldata authnChallenge,
         bytes memory ownerSignature, bytes memory validatorSignature
     ) internal virtual override(AbstractFromBridge, AbstractBurningFromBridge) {
-        // Will call "AbstractBurningFromBridge._emitEvents" function.
-        super._emitEvents(
+        // Will call "AbstractBurningFromBridge._emitEventsWhenCommit" function.
+        super._emitEventsWhenCommit(
             origin,
             destination,
             requestId,

@@ -25,7 +25,7 @@ interface IFromBridge is IFromBridgeEvents {
     }
 
     /**
-     * @dev "_validator" getter.
+     * @return Address of the validator.
      */
     function getValidator() external view returns(address);
         

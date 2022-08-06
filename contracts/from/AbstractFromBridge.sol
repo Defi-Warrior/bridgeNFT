@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
 import "./interfaces/IFromBridge.sol";
 import "../utils/Signature.sol";
@@ -11,12 +12,19 @@ import "../utils/Signature.sol";
 /**
  * @title AbstractFromBridge
  * @dev This contract carries out the first part of the process of bridging (converting)
- * user's ERC721 NFTs from this chain to another chain. Both chains are Ethereum-based.
+ * user's tokens from a ERC721 NFT to "another" ERC721 NFT.
+ *
+ * Both NFTs may be different contracts on the same chain, or may be on different chains.
+ * In fact, they could be the same NFT. There is no restriction on the origin and
+ * destination NFT.
+ *
  * The first part is essentially committing (by validator) and processing NFTs.
  * The processing action is either permanent burning or holding custody of the token,
  * depending on implementation.
  */
 abstract contract AbstractFromBridge is IFromBridge, Ownable {
+    using Address for address;
+
     struct ValidatorAndSignature {
         address validator;
         bytes   signature;
@@ -56,11 +64,28 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
      * @dev Constructor.
      */
     constructor(address validator) {
+        // Check all validator requirements.
+        _checkValidatorRequirements(validator);
+
         _validator = validator;
     }
 
     /**
+     * @dev Check all validator requirements.
+     *
+     * Currently the checks are:
+     * - Validator is an EOA. Unfortunately, this cannot be done in this version of Solidity
+     * and the check only exclude the case validator is a contract.
+     */
+    function _checkValidatorRequirements(address validator) internal view virtual {
+        // "isContract" function returns false does NOT mean that address is an EOA.
+        // See OpenZeppelin "Address" library for more information.
+        require(!validator.isContract(), "AbstractFromBridge.constructor: validator must not be a contract");
+    }
+
+    /**
      * @dev See IFromBridge.
+     * "_validator" getter.
      */
     function getValidator() external view override returns(address) {
         return _validator;
@@ -121,6 +146,11 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
 
     /**
      * @dev See IFromBridge.
+     * Technically this function can be re-entered. However reentrancy guard is intentionally
+     * omitted to reduce gas.
+     * The only function that makes external non-view call (i.e. transaction) is "_processToken".
+     * Care MUST be taken about reentrancy attack when implementing "_processToken" function
+     * or override this function.
      */
     function commit(
         address fromToken,
@@ -131,7 +161,6 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
         bytes calldata authnChallenge,
         bytes memory ownerSignature, bytes memory validatorSignature
     ) public virtual override onlyValidator("commit: Only validator can commit") {
-
         Origin memory origin = Origin(fromToken, address(this));
         TokenInfo memory tokenInfo = TokenInfo(tokenId, _getTokenUri(fromToken, tokenId));
 
@@ -150,7 +179,7 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
         _processToken(origin, requestId.tokenOwner, tokenId);
 
         // Update all state variables needed.
-        _updateState(
+        _updateStateWhenCommit(
             origin,
             destination,
             requestId,
@@ -160,7 +189,7 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
             ownerSignature, validatorSignature);
 
         // Emit all events needed.
-        _emitEvents(
+        _emitEventsWhenCommit(
             origin,
             destination,
             requestId,
@@ -252,11 +281,14 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
     /**
      * @dev Save or update all the state variables needed.
      * Child contracts MAY override if they had other state variables needing to be saved or updated.
-     * In that case, super._updateState() MUST be called to keep the parent contracts' state consistent.
+     * In that case, super._updateStateWhenCommit() MUST be called to keep the parent contracts' state consistent.
      * Parameters are the same as "_checkCommitRequirements" function. All values are put in parameter
      * to cover all possible cases.
+     *
+     * When overriding this function, DO NOT make external call. Preventing reentrancy attack is one reason.
+     * Overriding functions MUST only carry out modifications to the contract's storage.
      */
-    function _updateState(
+    function _updateStateWhenCommit(
         Origin memory origin,
         Destination calldata destination,
         RequestId calldata requestId,
@@ -289,11 +321,14 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
 
     /**
      * @dev Emit all the events needed. Child contracts MAY override to emit the events they want.
-     * However, super._emitEvents() SHOULD be called to keep emitting the events of parent contracts.
+     * However, super._emitEventsWhenCommit() SHOULD be called to keep emitting the events of parent contracts.
      * Parameters are the same as "_checkCommitRequirements" function. All values are put in parameter
      * to cover all possible events.
+     *
+     * When overriding this function, DO NOT make external call. Preventing reentrancy attack is one reason.
+     * Overriding functions MUST only emit event(s).
      */
-    function _emitEvents(
+    function _emitEventsWhenCommit(
         Origin memory origin,
         Destination calldata destination,
         RequestId calldata requestId,

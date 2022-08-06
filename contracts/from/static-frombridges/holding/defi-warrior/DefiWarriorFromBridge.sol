@@ -12,6 +12,7 @@ import "./interfaces/IBodyPart.sol";
  * When bridging a warrior, the body parts (also ERC721 token) are also bridged.
  */
 contract DefiWarriorFromBridge is StaticHoldingRevocableFromBridge {
+    using Address for address;
 
     /**
      * Address (Ethereum format) of the validator that provides owner signature
@@ -23,6 +24,8 @@ contract DefiWarriorFromBridge is StaticHoldingRevocableFromBridge {
      * @dev Constructor.
      */
     constructor(address validator, address fromToken, address fromBodyPart) StaticHoldingRevocableFromBridge(validator, fromToken) {
+        require(fromBodyPart.isContract(), "DefiWarriorFromBridge.constructor: FromBodyPart must be a contract");
+
         _fromBodyPart = fromBodyPart;
     }
 
@@ -39,15 +42,15 @@ contract DefiWarriorFromBridge is StaticHoldingRevocableFromBridge {
      * all the body parts' attributes. DefiWarriorToBridge needs all these data to mint
      * the same warrior.
      */
-    function _getTokenUri(address fromToken, uint256 tokenId) internal view virtual override returns(bytes memory) {
+    function _getTokenUri(address fromToken, uint256 tokenId) internal view override returns(bytes memory) {
         uint32[6] memory partIds = IWarrior(fromToken).getPartIds(tokenId);
-        uint32[20][6] memory bodyPartAttributes;
+        uint32[20][6] memory bodypartAttributes;
 
         for (uint256 i = 0; i < 6; i++){
-            bodyPartAttributes[i] = IBodyPart(_fromBodyPart).getAttributeAt(partIds[i]);
+            bodypartAttributes[i] = IBodyPart(_fromBodyPart).getAttributeAt(partIds[i]);
         }
 
-        bytes memory tokenUri = abi.encode(IWarrior(fromToken).getAttributeAt(tokenId), bodyPartAttributes);
+        bytes memory tokenUri = abi.encode(IWarrior(fromToken).getAttributeAt(tokenId), bodypartAttributes);
         return tokenUri;
     }
 }

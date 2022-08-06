@@ -27,7 +27,7 @@ abstract contract AbstractBurningFromBridge is IBurningFromBridge, AbstractFromB
      * @dev See AbstractFromBridge.
      * Emit "BurnedTokenUri" event to store token URI.
      */
-    function _emitEvents(
+    function _emitEventsWhenCommit(
         Origin memory origin,
         Destination calldata destination,
         RequestId calldata requestId,
@@ -36,8 +36,8 @@ abstract contract AbstractBurningFromBridge is IBurningFromBridge, AbstractFromB
         bytes calldata authnChallenge,
         bytes memory ownerSignature, bytes memory validatorSignature
     ) internal virtual override {
-        // Will call "AbstractFromBridge._emitEvents" function.
-        super._emitEvents(
+        // Will call "AbstractFromBridge._emitEventsWhenCommit" function.
+        super._emitEventsWhenCommit(
             origin,
             destination,
             requestId,
