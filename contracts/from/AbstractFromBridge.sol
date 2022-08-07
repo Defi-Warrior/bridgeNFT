@@ -71,7 +71,7 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
     }
 
     /**
-     * @dev Check all validator requirements.
+     * @dev Check all "validator" requirements.
      *
      * Currently the checks are:
      * - Validator is an EOA. Unfortunately, this cannot be done in this version of Solidity

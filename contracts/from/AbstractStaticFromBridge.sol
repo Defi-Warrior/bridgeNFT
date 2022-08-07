@@ -33,10 +33,10 @@ abstract contract AbstractStaticFromBridge is IStaticFromBridge, AbstractFromBri
     }
 
     /**
-     * @dev Check all FromToken requirements.
+     * @dev Check all "fromToken" requirements.
      *
      * Currently the checks are:
-     * - FromToken is a contract.
+     * - fromToken is a contract.
      */
     function _checkFromTokenRequirements(address fromToken) internal view virtual {
         require(fromToken.isContract(), "AbstractStaticFromBridge.constructor: FromToken must be a contract");
