@@ -1,60 +1,36 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
-interface IClaim {
+import "./IToBridge.sol";
+import "./events/IClaimToBridgeEvents.sol";
 
-    event Claim(
-        address indexed claimer,
-        uint256 indexed tokenId,
-        string          tokenUri,
-        bytes32 indexed commitment,
-        uint256         requestTimestamp,
-        uint256         waitingDurationForOldTokenToBeProcessed,
-        uint256         claimTimestamp,
-        uint256         waitingDurationToAcquireByClaim,
-        uint256         escrow);
+interface IClaimToBridge is IToBridge, IClaimToBridgeEvents {
+    /**
+     * @return Address of the denier.
+     */
+    function getDenier() external view returns(address);
 
-    event AcquireByClaim(
-        address indexed acquirer,
-        uint256         oldTokenId,
-        uint256 indexed newTokenId,
-        string          tokenUri,
-        bytes32 indexed commitment,
-        uint256         requestTimestamp,
-        uint256         waitingDurationForOldTokenToBeProcessed,
-        uint256         claimTimestamp,
-        uint256         waitingDurationToAcquireByClaim,
-        uint256         acquirementTimestamp);
-
-    event Deny(
-        address indexed claimer,
-        uint256 indexed tokenId,
-        string          tokenUri,
-        bytes32 indexed commitment,
-        uint256         requestTimestamp,
-        uint256         waitingDurationForOldTokenToBeProcessed,
-        uint256         claimTimestamp,
-        uint256         denialTimestamp,
-        uint256         waitingDurationToAcquireByClaim);
-        
     /**
      * @return The current global time duration the token owner needs to wait in order to
      * acquire by claim, starting from claim's timestamp determined by ToBridge.
      */
-    function globalWaitingDurationToAcquireByClaim() external view returns (uint256);
+    function getGlobalWaitingDurationToAcquireByClaim() external view returns(uint256);
 
     /**
      * @return The minimum value of the native currency for escrow.
      */
-    function minimumEscrow() external view returns (uint256);
+    function getMinimumEscrow() external view returns(uint256);
+
+    /* ********************************************************************************************** */
 
     /**
      * @dev This function is called by users to claim that the old token has been processed
      * but they have not received the secret from the validator. Afterwards users may acquire
      * the new token by calling "acquireByClaim" function.
      * @param tokenOwner The owner of the old token.
-     * @param tokenId The ID of the old token.
-     * @param tokenUri The URI of the old token.
+     * @param oldTokenInfo Consists of:
+     * - tokenId: The ID of the old token.
+     * - tokenUri: The URI of the old token.
      * @param commitment The validator's commitment.
      * @param requestTimestamp The timestamp when the validator received request.
      * @param validatorSignature This signature was signed by the validator after verifying
@@ -62,11 +38,15 @@ interface IClaim {
      * For message format, see "verifyValidatorSignature" function in "Signature.sol" contract.
      */
     function claim(
-        address tokenOwner, uint256 tokenId,
-        string memory tokenUri,
-        bytes32 commitment, uint256 requestTimestamp,
+        Origin calldata origin,
+        address tokenOwner,
+        TokenInfo memory oldTokenInfo,
+        bytes32 commitment,
+        uint256 requestTimestamp,
         bytes memory validatorSignature
     ) external payable;
+
+    /* ********************************************************************************************** */
 
     /**
      * @dev This function is called by users after claimming to acquire new token without
@@ -75,6 +55,8 @@ interface IClaim {
      * and vice versa, so the commitment could act as the claim's identity.
      */
     function acquireByClaim(bytes32 commitment) external;
+
+    /* ********************************************************************************************** */
 
     /**
      * @dev This function may be called by the validator after a claim was submitted by a user,
