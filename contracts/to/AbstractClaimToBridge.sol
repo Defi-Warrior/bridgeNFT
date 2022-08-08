@@ -58,13 +58,10 @@ abstract contract AbstractClaimToBridge is IClaimToBridge, AbstractToBridge {
      * @dev Constructor.
      */
     constructor(
-        address toToken,
-        address validator,
-        uint256 globalWaitingDurationForOldTokenToBeProcessed,
         address denier,
         uint256 globalWaitingDurationToAcquireByClaim,
         uint256 minimumEscrow
-    ) AbstractToBridge(toToken, validator, globalWaitingDurationForOldTokenToBeProcessed) {
+    ) {
         _checkDenierRequirements(denier);
         _checkGlobalWaitingDurationToAcquireByClaimRequirements(globalWaitingDurationToAcquireByClaim);
         _checkMinimumEscrowRequirements(minimumEscrow);

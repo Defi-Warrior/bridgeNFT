@@ -6,6 +6,8 @@ import "../../../StaticHoldingRevocableFromBridge.sol";
 import "./interfaces/IWarrior.sol";
 import "./interfaces/IBodyPart.sol";
 
+import "../../../../utils/defi-warrior/WarriorEncoding.sol";
+
 /**
  * @title DefiWarriorFromBridge
  * @dev The version of FromBridge that supports only Defi Warrior NFT.
@@ -43,14 +45,19 @@ contract DefiWarriorFromBridge is StaticHoldingRevocableFromBridge {
      * the same warrior.
      */
     function _getTokenUri(address fromToken, uint256 tokenId) internal view override returns(bytes memory) {
+        // Get warrior's attributes.
+        uint32[30] memory warriorAttributes = IWarrior(fromToken).getAttributeAt(tokenId);
+
+        // Get body parts' attributes.
         uint32[6] memory partIds = IWarrior(fromToken).getPartIds(tokenId);
         uint32[20][6] memory bodypartAttributes;
-
         for (uint256 i = 0; i < 6; i++){
             bodypartAttributes[i] = IBodyPart(_fromBodyPart).getAttributeAt(partIds[i]);
         }
 
-        bytes memory tokenUri = abi.encode(IWarrior(fromToken).getAttributeAt(tokenId), bodypartAttributes);
+        // Encode to token URI as bytes.
+        bytes memory tokenUri = WarriorEncoding.encode(warriorAttributes, bodypartAttributes);
+        
         return tokenUri;
     }
 }

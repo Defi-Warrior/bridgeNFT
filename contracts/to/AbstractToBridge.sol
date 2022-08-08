@@ -146,7 +146,7 @@ abstract contract AbstractToBridge is IToBridge, Ownable, ReentrancyGuard {
     /**
      * @dev See IToBridge.
      */
-    function isCurrentlyBridgable() public view virtual override returns(bool);
+    function isCurrentlyMintable() public view virtual override returns(bool);
 
     /**
      * @dev See IToBridge.
@@ -221,7 +221,7 @@ abstract contract AbstractToBridge is IToBridge, Ownable, ReentrancyGuard {
         bytes memory validatorSignature
     ) internal view virtual {
         // Check mint capability.
-        require(isCurrentlyBridgable(), "Acquire: Cannot mint new token at the moment");
+        require(isCurrentlyMintable(), "Acquire: Cannot mint new token at the moment");
 
         // Verify validator's signature.
         require(

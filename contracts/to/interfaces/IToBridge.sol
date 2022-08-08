@@ -51,7 +51,7 @@ interface IToBridge is IToBridgeEvents {
      * owners should stop to prevent their tokens getting processed at FromBridge.
      * @return true if this FromBridge has right to mint new FromToken's token.
      */
-    function isCurrentlyBridgable() external view returns(bool);
+    function isCurrentlyMintable() external view returns(bool);
 
     /**
      * @dev This function is called by users to get new token corresponding to the old one.
