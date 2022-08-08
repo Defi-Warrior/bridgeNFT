@@ -16,6 +16,8 @@ contract DynamicHoldingRevocableFromBridge is AbstractDynamicFromBridge, Abstrac
      */
     constructor(address validator) AbstractFromBridge(validator) {}
 
+    /* ********************************************************************************************** */
+
     /**
      * @dev See AbstractHoldingFromBridge.
      */
@@ -27,6 +29,8 @@ contract DynamicHoldingRevocableFromBridge is AbstractDynamicFromBridge, Abstrac
         // Will call "AbstractHoldingFromBridge._processToken" function.
         super._processToken(origin, tokenOwner, tokenId);
     }
+
+    /* ********************************************************************************************** */
 
     /**
      * @dev See AbstractRevocableFromBridge.

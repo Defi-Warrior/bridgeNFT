@@ -16,6 +16,8 @@ contract StaticBurningRevocableFromBridge is AbstractStaticFromBridge, AbstractB
      */
     constructor(address validator, address fromToken) AbstractFromBridge(validator) AbstractStaticFromBridge(fromToken) {}
 
+    /* ********************************************************************************************** */
+
     /**
      * @dev See AbstractStaticFromBridge.
      * @return result of "super.getTokenUri" function.
@@ -49,6 +51,8 @@ contract StaticBurningRevocableFromBridge is AbstractStaticFromBridge, AbstractB
             ownerSignature, validatorSignature
         );
     }
+
+    /* ********************************************************************************************** */
 
     /**
      * @dev See AbstractBurningFromBridge.
@@ -84,6 +88,8 @@ contract StaticBurningRevocableFromBridge is AbstractStaticFromBridge, AbstractB
             authnChallenge,
             ownerSignature, validatorSignature);
     }
+
+    /* ********************************************************************************************** */
 
     /**
      * @dev See AbstractRevocableFromBridge.
