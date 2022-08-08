@@ -17,6 +17,8 @@ abstract contract AbstractStaticFromBridge is IStaticFromBridge, AbstractFromBri
      */
     address private immutable _fromToken;
 
+    /* ********************************************************************************************** */
+
     modifier validateFromToken(address fromToken, string memory errorMessage) {
         require(fromToken == _fromToken, errorMessage);
         _;
@@ -49,6 +51,8 @@ abstract contract AbstractStaticFromBridge is IStaticFromBridge, AbstractFromBri
         return _fromToken;
     }
 
+    /* ********************************************************************************************** */
+
     /**
      * @dev See AbstractFromBridge.
      * Override "AbstractFromBridge.getTokenUri" to add fromToken validation.
@@ -60,6 +64,8 @@ abstract contract AbstractStaticFromBridge is IStaticFromBridge, AbstractFromBri
         // Will call "AbstractFromBridge.getTokenUri" function.
         return super.getTokenUri(fromToken, tokenId);
     }
+
+    /* ********************************************************************************************** */
 
     /**
      * @dev See AbstractFromBridge.

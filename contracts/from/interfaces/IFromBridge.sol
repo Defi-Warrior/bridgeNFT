@@ -24,10 +24,14 @@ interface IFromBridge is IFromBridgeEvents {
         bytes   tokenUri;
     }
 
+    /* ********************************************************************************************** */
+
     /**
      * @return Address of the validator.
      */
     function getValidator() external view returns(address);
+
+    /* ********************************************************************************************** */
         
     /**
      * @dev Users call to get nonce before requesting the validator for token bridging.
@@ -72,6 +76,8 @@ interface IFromBridge is IFromBridgeEvents {
      */
     function getValidatorSignature(RequestId calldata requestId)
         external view returns(address, bytes memory);
+
+    /* ********************************************************************************************** */
 
     /**
      * @dev This function is called only by the validator to submit the commitment

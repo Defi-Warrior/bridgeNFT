@@ -16,6 +16,8 @@ contract StaticHoldingRevocableFromBridge is AbstractStaticFromBridge, AbstractH
      */
     constructor(address validator, address fromToken) AbstractFromBridge(validator) AbstractStaticFromBridge(fromToken) {}
 
+    /* ********************************************************************************************** */
+
     /**
      * @dev See AbstractStaticFromBridge.
      * @return result of "super.getTokenUri" function.
@@ -50,6 +52,8 @@ contract StaticHoldingRevocableFromBridge is AbstractStaticFromBridge, AbstractH
         );
     }
 
+    /* ********************************************************************************************** */
+
     /**
      * @dev See AbstractHoldingFromBridge.
      */
@@ -61,6 +65,8 @@ contract StaticHoldingRevocableFromBridge is AbstractStaticFromBridge, AbstractH
         // Will call "AbstractHoldingFromBridge._processToken" function.
         super._processToken(origin, tokenOwner, tokenId);
     }
+
+    /* ********************************************************************************************** */
 
     /**
      * @dev See AbstractRevocableFromBridge.

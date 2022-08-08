@@ -16,6 +16,8 @@ contract DynamicBurningRevocableFromBridge is AbstractDynamicFromBridge, Abstrac
      */
     constructor(address validator) AbstractFromBridge(validator) {}
 
+    /* ********************************************************************************************** */
+
     /**
      * @dev See AbstractBurningFromBridge.
      */
@@ -50,6 +52,8 @@ contract DynamicBurningRevocableFromBridge is AbstractDynamicFromBridge, Abstrac
             authnChallenge,
             ownerSignature, validatorSignature);
     }
+
+    /* ********************************************************************************************** */
 
     /**
      * @dev See AbstractRevocableFromBridge.

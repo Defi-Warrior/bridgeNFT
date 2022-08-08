@@ -50,6 +50,8 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
      */
     mapping(address => mapping(uint256 => ValidatorAndSignature)) internal _validatorAndSignatures;
 
+    /* ********************************************************************************************** */
+
     modifier onlyAdmin(string memory errorMessage) {
         require(msg.sender == owner(), errorMessage);
         _;
@@ -90,6 +92,8 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
     function getValidator() external view override returns(address) {
         return _validator;
     }
+
+    /* ********************************************************************************************** */
 
     /**
      * @dev See IFromBridge.
@@ -143,6 +147,8 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
         
         return (valAndSig.validator, valAndSig.signature);
     }
+
+    /* ********************************************************************************************** */
 
     /**
      * @dev See IFromBridge.
