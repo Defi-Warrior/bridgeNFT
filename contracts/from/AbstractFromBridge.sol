@@ -167,7 +167,7 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
         bytes calldata authnChallenge,
         bytes memory ownerSignature, bytes memory validatorSignature
     ) public virtual override onlyValidator("commit: Only validator can commit") {
-        Origin memory origin = Origin(fromToken, address(this));
+        Origin memory origin = Origin(block.chainid, fromToken, address(this));
         TokenInfo memory tokenInfo = TokenInfo(tokenId, _getTokenUri(fromToken, tokenId));
 
         // Check all requirements to commit.
@@ -209,7 +209,7 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
      * @dev Check all requirements of the commit process. If an child contract has more
      * requirements, when overriding, it SHOULD first call super._checkCommitRequirements(...)
      * then add its own requirements.
-     * Parameters are virtually the same as "commit" function.
+     * Parameters are that of "commit" function plus "origin" and tokenUri included in "tokenInfo".
      *
      * Currently the checks are:
      * - Owner's signature.
@@ -233,8 +233,8 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
             OwnerSignature.verify(
                 requestId.tokenOwner,
                 OwnerSignature.MessageContainer(
-                    origin.fromToken, origin.fromBridge,
-                    destination.toToken, destination.toBridge,
+                    origin.fromChainId, origin.fromToken, origin.fromBridge,
+                    destination.toChainId, destination.toToken, destination.toBridge,
                     requestId.requestNonce, tokenInfo.tokenId,
                     authnChallenge),
                 ownerSignature),
@@ -245,8 +245,8 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
             ValidatorSignature.verify(
                 _validator,
                 ValidatorSignature.MessageContainer(
-                    origin.fromToken, origin.fromBridge,
-                    destination.toToken, destination.toBridge,
+                    origin.fromChainId, origin.fromToken, origin.fromBridge,
+                    destination.toChainId, destination.toToken, destination.toBridge,
                     requestId.tokenOwner,
                     tokenInfo.tokenId, tokenInfo.tokenUri,
                     commitment, requestTimestamp),
@@ -345,7 +345,7 @@ abstract contract AbstractFromBridge is IFromBridge, Ownable {
     ) internal virtual {
         emit Commit(
             origin.fromToken,
-            destination.toToken, destination.toBridge,
+            destination.toChainId, destination.toToken, destination.toBridge,
             requestId.tokenOwner, requestId.requestNonce,
             tokenInfo.tokenId,
             commitment, requestTimestamp);

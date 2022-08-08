@@ -28,7 +28,7 @@ abstract contract AbstractRevocableFromBridge is IRevocableFromBridge, AbstractF
         _announceRevocation(revokedValidator, newValidator, msg.sender);
 
         // Emit event.
-        emit Revoke(revokedValidator, newValidator, msg.sender);
+        emit Revoke(revokedValidator, newValidator, msg.sender, block.timestamp);
     }
 
     /**
