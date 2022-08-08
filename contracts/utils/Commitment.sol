@@ -23,7 +23,7 @@ library Commitment {
     function verify(
         bytes32 commitment,
         bytes calldata value
-    ) internal pure returns (bool) {
+    ) internal pure returns(bool) {
         return keccak256(value) == commitment;
     }
 }

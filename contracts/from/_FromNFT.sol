@@ -13,7 +13,7 @@ contract FromNFT is ERC721URIStorage, ERC721Burnable, Ownable {
         super._burn(tokenId);
     }
 
-    function tokenURI(uint256 tokenId) public view virtual override(ERC721URIStorage, ERC721) returns (string memory) {
+    function tokenURI(uint256 tokenId) public view virtual override(ERC721URIStorage, ERC721) returns(string memory) {
         // Need test to ensure it will call ERC721URIStorage.tokenURI function,
         // not ERC721.tokenURI function.
         return super.tokenURI(tokenId);
