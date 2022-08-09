@@ -5,7 +5,8 @@ interface IRevocableFromBridgeEvents {
     event Revoke(
         address indexed revokedValidator,
         address indexed newValidator,
-        address indexed revoker);
+        address indexed revoker,
+        uint256         revocationTimestamp);
 
     event UpdateValidatorSignature(
         address indexed tokenOwner,

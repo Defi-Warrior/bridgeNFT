@@ -5,11 +5,13 @@ import "./events/IFromBridgeEvents.sol";
 
 interface IFromBridge is IFromBridgeEvents {
     struct Origin {
+        uint256 fromChainId;
         address fromToken;
         address fromBridge;
     }
 
     struct Destination {
+        uint256 toChainId;
         address toToken;
         address toBridge;
     }

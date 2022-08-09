@@ -10,8 +10,10 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
  */
 library OwnerSignature {
     struct MessageContainer {
+        uint256 fromChainId;
         address fromToken;
         address fromBridge;
+        uint256 toChainId;
         address toToken;
         address toBridge;
         uint256 requestNonce;
@@ -23,8 +25,10 @@ library OwnerSignature {
      * @dev Verify owner's signature.
      * @param tokenOwner The owner of the requested token.
      * @param messageContainer Consists of:
+     * - fromChainId: Chain ID of the origin blockchain.
      * - fromToken: Address (Ethereum format) of fromToken.
      * - fromBridge: Address (Ethereum format) of fromBridge.
+     * - toChainId: Chain ID of the destination blockchain.
      * - toToken: Address (Ethereum format) of toToken.
      * - toBridge: Address (Ethereum format) of toBridge.
      * - requestNonce: The request's nonce.
@@ -49,7 +53,7 @@ library OwnerSignature {
      * @dev Craft message hash from container. Right now the message is crafted using plain
      * string concatenation. Will upgrade to EIP-712 later.
      * MESSAGE FORMAT:
-     *      "RequestBridge" || fromToken || fromBridge || toToken || toBridge ||
+     *      "RequestBridge" || fromChainId || fromToken || fromBridge || toChainId || toToken || toBridge ||
      *      requestNonce || tokenId || authnChallenge(*)
      * Values marked with an asterisk (*) have dynamic size so they need to be hashed
      * before concatenating for security reason.
@@ -57,8 +61,8 @@ library OwnerSignature {
      */
     function _toMessageHash(MessageContainer memory messageContainer) private pure returns(bytes32) {
         return ECDSA.toEthSignedMessageHash( abi.encodePacked("RequestBridge",
-            messageContainer.fromToken, messageContainer.fromBridge,
-            messageContainer.toToken, messageContainer.toBridge,
+            messageContainer.fromChainId, messageContainer.fromToken, messageContainer.fromBridge,
+            messageContainer.toChainId, messageContainer.toToken, messageContainer.toBridge,
             messageContainer.requestNonce, messageContainer.tokenId,
             keccak256(messageContainer.authnChallenge)) );
     }
@@ -70,8 +74,10 @@ library OwnerSignature {
  */
 library ValidatorSignature {
     struct MessageContainer {
+        uint256 fromChainId;
         address fromToken;
         address fromBridge;
+        uint256 toChainId;
         address toToken;
         address toBridge;
         address tokenOwner;
@@ -85,8 +91,10 @@ library ValidatorSignature {
      * @dev Verify validator's signature.
      * @param validator Address (Ethereum format) of validator.
      * @param messageContainer Consists of:
+     * - fromChainId: Chain ID of the origin blockchain.
      * - fromToken: Address (Ethereum format) of fromToken.
      * - fromBridge: Address (Ethereum format) of fromBridge.
+     * - toChainId: Chain ID of the destination blockchain.
      * - toToken: Address (Ethereum format) of toToken.
      * - toBridge: Address (Ethereum format) of toBridge.
      * - tokenOwner: The owner of the requested token.
@@ -116,7 +124,7 @@ library ValidatorSignature {
      * @dev Craft message hash from container. Right now the message is crafted using plain
      * string concatenation. Will upgrade to EIP-712 later.
      * MESSAGE FORMAT:
-     *      "Commit" || fromToken || fromBridge || toToken || toBridge ||
+     *      "Commit" || fromChainId || fromToken || fromBridge || toChainId || toToken || toBridge ||
      *      tokenOwner || tokenId || tokenUri(*) || commitment || requestTimestamp
      * Values marked with an asterisk (*) have dynamic size so they need to be hashed
      * before concatenating for security reason.
@@ -124,8 +132,8 @@ library ValidatorSignature {
      */
     function _toMessageHash(MessageContainer memory messageContainer) private pure returns(bytes32) {
         return ECDSA.toEthSignedMessageHash( abi.encodePacked("Commit",
-            messageContainer.fromToken, messageContainer.fromBridge,
-            messageContainer.toToken, messageContainer.toBridge,
+            messageContainer.fromChainId, messageContainer.fromToken, messageContainer.fromBridge,
+            messageContainer.toChainId, messageContainer.toToken, messageContainer.toBridge,
             messageContainer.tokenOwner, messageContainer.tokenId,
             keccak256(messageContainer.tokenUri),
             messageContainer.commitment, messageContainer.requestTimestamp) );
