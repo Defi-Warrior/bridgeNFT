@@ -38,7 +38,7 @@ commitKey[n] <- new_commitKey
 
 ###### COMMIT (ownerAddr, tokenId, requestNonce)
 ```
-secret <- PRF(commitKey[n], ownerAddr || tokenId || requestNonce)
+secret <- PRF(commitKey[n], bridgeContext || ownerAddr || requestNonce)
 commitment <- HASH(secret)
 keyIndicator <- AEAD_ENC(indexEncKey, n, ownerAddr || tokenId || requestNonce)
 return (commitment, keyIndicator)
@@ -47,7 +47,7 @@ return (commitment, keyIndicator)
 ###### REVEAL (ownerAddr, tokenId, requestNonce, keyIndicator)
 ```
 i <- AEAD_DEC(indexEncKey, keyIndicator, ownerAddr || tokenId || requestNonce)
-secret <- PRF(commitKey[i], ownerAddr || tokenId || requestNonce)
+secret <- PRF(commitKey[i], bridgeContext || ownerAddr || requestNonce)
 return secret
 ```
 

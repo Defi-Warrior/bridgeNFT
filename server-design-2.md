@@ -32,7 +32,7 @@ commitKey[n] <- random()
 
 ###### COMMIT (ownerAddr, tokenId, requestNonce)
 ```
-secret <- PRF(commitKey[n], ownerAddr || tokenId || requestNonce)
+secret <- PRF(commitKey[n], bridgeContext || ownerAddr || requestNonce)
 commitment <- HASH(secret)
 save(ownerAddr, tokenId, requestNonce, n)
 return commitment
@@ -41,7 +41,7 @@ return commitment
 ###### REVEAL (ownerAddr, tokenId, requestNonce)
 ```
 i <- retrieve(ownerAddr, tokenId, requestNonce)
-secret <- PRF(commitKey[i], ownerAddr || tokenId || requestNonce)
+secret <- PRF(commitKey[i], bridgeContext || ownerAddr || requestNonce)
 return secret
 ```
 
