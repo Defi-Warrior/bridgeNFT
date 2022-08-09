@@ -11,13 +11,18 @@
         "TOKENS": {
             "Defi Warrior NFT": {
                 "ADDRESS": "0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79",
-                "TOBRIDGE": ""
+                "TOBRIDGE": "",
+                "NFTManager": ""
             }
         }
     },
     "POLYGON": {
         "TOKENS": {
-
+            "Defi Warrior NFT": {
+                "ADDRESS": "0xfd4D9e1122792dFF031e94c4378FaC48322dbF3e",
+                "TOBRIDGE": "",
+                "NFTManager": ""
+            }
         }
     }
 }
