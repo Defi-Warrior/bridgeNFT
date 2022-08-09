@@ -4,11 +4,15 @@ pragma solidity ^0.8.0;
 import "./interfaces/IRevocableFromBridge.sol";
 import "./AbstractFromBridge.sol";
 
+import "./interfaces/IValidatorRevocationAnnouncementReceiver.sol";
+
 /**
  * @title AbstractRevocableFromBridge
  * @dev The version of FromBridge that supports revoking validator then switching to a new one.
  */
 abstract contract AbstractRevocableFromBridge is IRevocableFromBridge, AbstractFromBridge {
+    uint256 private constant _MAX_ANNOUNCEMENT_GAS = 10000;
+
     /**
      * @dev See IRevocableFromBridge.
      * Child contracts MAY override this function if they want further fine-grained control
@@ -25,7 +29,7 @@ abstract contract AbstractRevocableFromBridge is IRevocableFromBridge, AbstractF
         _validator = newValidator;
 
         // Announe revocation to other contracts.
-        _announceRevocation(revokedValidator, newValidator, msg.sender);
+        _announceRevocationToAll(revokedValidator, newValidator, msg.sender);
 
         // Emit event.
         emit Revoke(revokedValidator, newValidator, msg.sender, block.timestamp);
@@ -42,7 +46,27 @@ abstract contract AbstractRevocableFromBridge is IRevocableFromBridge, AbstractF
      * that swallows exception for each external call. Or alternatively, use the low-level
      * "address.call".
      */
-    function _announceRevocation(address revokedValidator, address newValidator, address revoker) internal virtual {}
+    function _announceRevocationToAll(address revokedValidator, address newValidator, address revoker) internal virtual {}
+
+    /**
+     * @dev
+     */
+    function _announceRevocationTo(
+        address receiver,
+        address revokedValidator,
+        address newValidator,
+        address revoker
+    ) internal {
+        require(gasleft() >= _MAX_ANNOUNCEMENT_GAS);
+
+        receiver.call{ gas: _MAX_ANNOUNCEMENT_GAS }( abi.encodeWithSelector(
+            IValidatorRevocationAnnouncementReceiver.receiveAnnouncement.selector,
+            revokedValidator,
+            newValidator,
+            revoker) );
+    }
+
+    /* ********************************************************************************************** */
 
     /**
      * @dev See AbstractFromBridge.

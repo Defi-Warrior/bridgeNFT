@@ -5,7 +5,6 @@ import "../../AbstractClaimToBridge.sol";
 import "../../AbstractRevocableToBridge.sol";
 
 import "../../interfaces/IToTokenMinter.sol";
-import "../../interfaces/IValidatorRevocationAnnouncementReceiver.sol";
 import "./interfaces/INFTManager.sol";
 import "../../../utils/defi-warrior/WarriorEncoding.sol";
 
@@ -84,9 +83,7 @@ contract DefiWarriorToBridge is AbstractClaimToBridge, AbstractRevocableToBridge
     /**
      * @dev See AbstractRevocableToBridge.
      */
-    function _announceRevocation(address revokedValidator, address newValidator, address revoker) internal override {
-        // Temporary.
-        IValidatorRevocationAnnouncementReceiver(_nftManager)
-            .receiveAnnouncement(revokedValidator, newValidator, revoker);
+    function _announceRevocationToAll(address revokedValidator, address newValidator, address revoker) internal override {
+        _announceRevocationTo(_nftManager, revokedValidator, newValidator, revoker);
     }
 }
