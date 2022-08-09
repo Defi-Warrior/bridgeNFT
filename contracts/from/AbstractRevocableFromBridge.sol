@@ -11,7 +11,10 @@ import "./interfaces/IValidatorRevocationAnnouncementReceiver.sol";
  * @dev The version of FromBridge that supports revoking validator then switching to a new one.
  */
 abstract contract AbstractRevocableFromBridge is IRevocableFromBridge, AbstractFromBridge {
-    uint256 private constant _MAX_ANNOUNCEMENT_GAS = 10000;
+    /**
+     * @dev Max gas for receiver contract can consume to update state.
+     */
+    uint256 private constant _MAX_ANNOUNCEMENT_GAS = 30000;
 
     /**
      * @dev See IRevocableFromBridge.
@@ -23,16 +26,14 @@ abstract contract AbstractRevocableFromBridge is IRevocableFromBridge, AbstractF
         // Check all validator requirements.
         _checkValidatorRequirements(newValidator);
 
-        address revokedValidator = _validator;
+        // Announe revocation to other contracts.
+        _announceRevocationToAll(_validator, newValidator, msg.sender);
+
+        // Emit event.
+        emit Revoke(_validator, newValidator, msg.sender, block.timestamp);
 
         // Update validator.
         _validator = newValidator;
-
-        // Announe revocation to other contracts.
-        _announceRevocationToAll(revokedValidator, newValidator, msg.sender);
-
-        // Emit event.
-        emit Revoke(revokedValidator, newValidator, msg.sender, block.timestamp);
     }
 
     /**
@@ -40,16 +41,32 @@ abstract contract AbstractRevocableFromBridge is IRevocableFromBridge, AbstractF
      * take proper subsequent actions if needed. Child contracts MAY override to add the
      * announcement(s) they need.
      *
-     * This function SHOULD NOT propagate the exceptions thrown by the called contracts to not
-     * interfere with the revocation. Also, an announcement to a contract SHOULD not interfere with
-     * announcements to other contracts as well. Therefore, there SHOULD be a try-catch block
-     * that swallows exception for each external call. Or alternatively, use the low-level
-     * "address.call".
+     * The receivers (i.e. announcement receiving contracts) MUST implement the
+     * "IValidatorRevocationAnnouncementReceiver" interface.
+     *
+     * When overriding, the "_announceRevocationTo" function MUST be used to announce to each receiver.
+     * Child contracts MAY optionally implement observer pattern to get more dynamic control over
+     * the receiver list.
      */
-    function _announceRevocationToAll(address revokedValidator, address newValidator, address revoker) internal virtual {}
+    function _announceRevocationToAll(
+        address revokedValidator,
+        address newValidator,
+        address revoker
+    ) internal virtual {}
 
     /**
-     * @dev
+     * @dev See "_announceRevocationToAll" function.
+     * Announce the revocation to one contract.
+     *
+     * This function do not propagate the exception thrown by the called contract to not
+     * interfere with the revocation, and also, to the announcement to other contracts.
+     * Therefore, low-level call is used to swallow exception.
+     *
+     * The gas is specified to prevent the receiver from consuming too much gas and
+     * affect the revocation transaction. For this reason, the receiver might fail to
+     * update its state to reflect the revocation and might lead to security issues.
+     * This is a dilemma between revocation success and announcement success. We chose
+     * to prioritized the revocation.
      */
     function _announceRevocationTo(
         address receiver,
@@ -57,7 +74,7 @@ abstract contract AbstractRevocableFromBridge is IRevocableFromBridge, AbstractF
         address newValidator,
         address revoker
     ) internal {
-        require(gasleft() >= _MAX_ANNOUNCEMENT_GAS);
+        require(gasleft() >= _MAX_ANNOUNCEMENT_GAS, "revokeValidator: Not enough gas to announce to all");
 
         receiver.call{ gas: _MAX_ANNOUNCEMENT_GAS }( abi.encodeWithSelector(
             IValidatorRevocationAnnouncementReceiver.receiveAnnouncement.selector,

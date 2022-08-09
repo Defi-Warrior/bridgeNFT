@@ -11,7 +11,10 @@ import "./interfaces/IValidatorRevocationAnnouncementReceiver.sol";
  * @dev The version of ToBridge that supports revoking validator then switching to a new one.
  */
 abstract contract AbstractRevocableToBridge is IRevocableToBridge, AbstractToBridge {
-    uint256 private constant _MAX_ANNOUNCEMENT_GAS = 10000;
+    /**
+     * @dev Max gas for receiver contract can consume to update state.
+     */
+    uint256 private constant _MAX_ANNOUNCEMENT_GAS = 30000;
 
     /**
      * @dev See IRevocableToBridge.
@@ -23,16 +26,14 @@ abstract contract AbstractRevocableToBridge is IRevocableToBridge, AbstractToBri
         // Check all validator requirements.
         _checkValidatorRequirements(newValidator);
 
-        address revokedValidator = _validator;
+        // Announe revocation to other contracts.
+        _announceRevocationToAll(_validator, newValidator, msg.sender);
+
+        // Emit event.
+        emit Revoke(_validator, newValidator, msg.sender, block.timestamp);
 
         // Update validator.
         _validator = newValidator;
-
-        // Announe revocation to other contracts.
-        _announceRevocationToAll(revokedValidator, newValidator, msg.sender);
-
-        // Emit event.
-        emit Revoke(revokedValidator, newValidator, msg.sender, block.timestamp);
     }
 
     /**
@@ -54,7 +55,7 @@ abstract contract AbstractRevocableToBridge is IRevocableToBridge, AbstractToBri
     ) internal virtual {}
 
     /**
-     * @dev See _announceRevocationToAll.
+     * @dev See "_announceRevocationToAll" function.
      * Announce the revocation to one contract.
      *
      * This function do not propagate the exception thrown by the called contract to not
@@ -64,7 +65,8 @@ abstract contract AbstractRevocableToBridge is IRevocableToBridge, AbstractToBri
      * The gas is specified to prevent the receiver from consuming too much gas and
      * affect the revocation transaction. For this reason, the receiver might fail to
      * update its state to reflect the revocation and might lead to security issues.
-     *
+     * This is a dilemma between revocation success and announcement success. We chose
+     * to prioritized the revocation.
      */
     function _announceRevocationTo(
         address receiver,
@@ -72,7 +74,7 @@ abstract contract AbstractRevocableToBridge is IRevocableToBridge, AbstractToBri
         address newValidator,
         address revoker
     ) internal {
-        require(gasleft() >= _MAX_ANNOUNCEMENT_GAS);
+        require(gasleft() >= _MAX_ANNOUNCEMENT_GAS, "revokeValidator: Not enough gas to announce to all");
 
         receiver.call{ gas: _MAX_ANNOUNCEMENT_GAS }( abi.encodeWithSelector(
             IValidatorRevocationAnnouncementReceiver.receiveAnnouncement.selector,
