@@ -13,7 +13,7 @@
             "Defi Warrior NFT": {
                 "ADDRESS": "0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79",
                 "DYNAMIC_FROMBRIDGE_COMPATIBILITY": false,
-                "STATIC_FROMBRIDGE": "",
+                "STATIC_FROMBRIDGE": "0x78099363fB382Ff8b521d396D753c85f9b536903",
                 "Defi Warrior BodyPart NFT": "0x363170404fe6C2EF7dCe2cDC293823b8df7994d8"
             }
         },
