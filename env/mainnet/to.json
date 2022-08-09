@@ -12,7 +12,7 @@
             "Defi Warrior NFT": {
                 "ADDRESS": "0xD21F97E08599560C721D668962Fba875684b03C4",
                 "TOBRIDGE": "",
-                "NFTManager": ""
+                "NFT_MANAGER": "0xea35B30A42Fc858E9Ee52C7BeEa129a1100aFcDC"
             }
         }
     },
