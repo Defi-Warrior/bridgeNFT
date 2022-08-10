@@ -15,4 +15,5 @@ export async function deploy(deployer: Signer):
 
 export async function initialize(toToken: ToNFT, contractOwner: Signer, toBridgeAddr: string) {
     await toToken.connect(contractOwner).setToBridge(toBridgeAddr);
+    await toToken.connect(contractOwner).setAllowMint(true);
 }

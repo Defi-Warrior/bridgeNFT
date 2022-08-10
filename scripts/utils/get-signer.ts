@@ -6,7 +6,8 @@ import { retrieveNetworkInfo } from "./data/env-io";
 
 export enum Role {
     DEPLOYER = "DEPLOYER",
-    VALIDATOR = "VALIDATOR"
+    VALIDATOR = "VALIDATOR",
+    DENIER = "DENIER"
 }
 
 export async function getSigner(role: Role, networkName: Network): Promise<Signer> {
