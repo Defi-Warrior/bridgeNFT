@@ -26,11 +26,11 @@ export class OwnerSignature {
         return compactSignature;
     }
 
-    public static async verify(
+    public static verify(
         ownerAddr: string,
         messageContainer: OwnerSignature.MessageContainer,
         signature: BytesLike
-    ): Promise<boolean> {
+    ): boolean {
         const message: Bytes = this._toMessage(messageContainer);
 
         return utils.verifyMessage(message, signature) === ownerAddr;

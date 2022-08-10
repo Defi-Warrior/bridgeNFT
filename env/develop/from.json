@@ -1,33 +1,32 @@
 {
-    "LOCALHOST_8545": {
+    "97": {
+        "CHAIN_NAME": "BSC_TEST",
         "TOKENS": {
-            "FromNFT": {
-                "ADDRESS": "",
-                "DYNAMIC_FROMBRIDGE_COMPATIBILITY": true
+            "0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79": {
+                "NAME": "Defi Warrior NFT",
+                "DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY": false,
+                "DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY": false,
+                "STATIC_FROMBRIDGE": {
+                    "ADDRESS": "0x78099363fB382Ff8b521d396D753c85f9b536903",
+                    "VALIDATOR_REVOCABILITY": true
+                },
+                "BODYPART": "0x363170404fe6C2EF7dCe2cDC293823b8df7994d8"
             }
-        },
-        "DYNAMIC_FROMBRIDGE": ""
+        }
     },
-    "BSC": {
-        "TOKENS": {
-            "Defi Warrior NFT": {
-                "ADDRESS": "0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79",
-                "DYNAMIC_FROMBRIDGE_COMPATIBILITY": false,
-                "STATIC_FROMBRIDGE": "0x78099363fB382Ff8b521d396D753c85f9b536903",
-                "Defi Warrior BodyPart NFT": "0x363170404fe6C2EF7dCe2cDC293823b8df7994d8"
-            }
-        },
-        "DYNAMIC_FROMBRIDGE": ""
+    "31337": {
+        "CHAIN_NAME": "LOCALHOST_8545",
+        "TOKENS": {}
     },
-    "POLYGON": {
+    "80001": {
+        "CHAIN_NAME": "POLYGON_TEST_MUMBAI",
         "TOKENS": {
-            "Defi Warrior NFT": {
-                "ADDRESS": "0xfd4D9e1122792dFF031e94c4378FaC48322dbF3e",
-                "DYNAMIC_FROMBRIDGE_COMPATIBILITY": false,
-                "STATIC_FROMBRIDGE": "",
-                "Defi Warrior BodyPart NFT": "0x30A03fA3ED43E2F256BefC0f4343096bB6c339ef"
+            "0xfd4D9e1122792dFF031e94c4378FaC48322dbF3e": {
+                "NAME": "Defi Warrior NFT",
+                "DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY": false,
+                "DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY": false,
+                "BODYPART": "0x30A03fA3ED43E2F256BefC0f4343096bB6c339ef"
             }
-        },
-        "DYNAMIC_FROMBRIDGE": ""
+        }
     }
 }

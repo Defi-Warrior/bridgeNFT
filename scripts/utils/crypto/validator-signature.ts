@@ -28,11 +28,11 @@ export class ValidatorSignature {
         return compactSignature;
     }
 
-    public static async verify(
+    public static verify(
         validatorAddr: string,
         messageContainer: ValidatorSignature.MessageContainer,
         signature: BytesLike
-    ): Promise<boolean> {
+    ): boolean {
         const message: Bytes = this._toMessage(messageContainer);
 
         return utils.verifyMessage(message, signature) === validatorAddr;

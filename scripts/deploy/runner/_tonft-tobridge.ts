@@ -2,24 +2,21 @@ import { Signer } from "ethers";
 
 import { ToNftToBridge } from "../../../typechain-types";
 
-import Network from "../../types/network-enum";
-import { ToTokenInfo } from "../../types/dto/token-info";
-import { retrieveTokenInfoInToData } from "../../utils/data/retrieve-token-info";
+import { NETWORK } from "../../../env/network";
+import { NetworkInfo } from "../../types/dto/network-info";
 import { deployConfig } from "../../utils/config";
 import { storeToBridge } from "../../utils/data/store-deployed-bridge";
 import { getSigner, Role } from "../../utils/get-signer";
 import { deploy as deployToNftToBridge } from "../function/_tonft-tobridge";
 
-const network: Network = Network.LOCALHOST_8546;
-const toTokenName: string = "ToNFT";
+const network: NetworkInfo = NETWORK.LOCALHOST_8546;
+const toTokenAddr: string = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
 
 (async () => {
-    // Deploy
-    const deployer:         Signer = await getSigner(Role.DEPLOYER, network);
-    const validatorAddr:    string = await (await getSigner(Role.VALIDATOR, network)).getAddress();
-    const denierAddr:       string = await (await getSigner(Role.DENIER, network)).getAddress();
-    const toTokenInfo: ToTokenInfo = retrieveTokenInfoInToData(network, toTokenName);
-    const toTokenAddr:      string = toTokenInfo["ADDRESS"];
+    // Deploy.
+    const deployer:         Signer = getSigner(Role.DEPLOYER, network);
+    const validatorAddr:    string = await (getSigner(Role.VALIDATOR, network)).getAddress();
+    const denierAddr:       string = await (getSigner(Role.DENIER, network)).getAddress();
 
     const toNftToBridge: ToNftToBridge = await deployToNftToBridge(
         deployer,
@@ -28,10 +25,10 @@ const toTokenName: string = "ToNFT";
         denierAddr,
         deployConfig);
 
-    // Store
-    storeToBridge(network, toTokenName, toNftToBridge.address);
+    // Store.
+    storeToBridge(network, toTokenAddr, toNftToBridge.address, true, true);
 
-    // Log address
+    // Log address.
     console.log("Deployed ToNftToBridge contract's address:");
     console.log(toNftToBridge.address);
 })();

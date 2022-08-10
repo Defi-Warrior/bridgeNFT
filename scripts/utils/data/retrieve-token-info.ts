@@ -1,31 +1,23 @@
+import { NetworkInfo } from "../../types/dto/network-info";
 import { FromTokenInfo, ToTokenInfo } from "../../types/dto/token-info";
-import Network from "../../types/network-enum";
-import { retrieveFromData, retrieveToData } from "./env-io";
+import { retrieveNetworkBridgeInfoInFromData, retrieveNetworkBridgeInfoInToData } from "./retrieve-network-bridge-info";
 
-export function retrieveTokenInfoInFromData(network: Network, tokenName: string): FromTokenInfo {
-    const fromData: Record<string, any> = retrieveFromData();
+export function retrieveTokenInfoInFromData(network: NetworkInfo, fromTokenAddr: string): FromTokenInfo {
+    const fromTokenInfo: FromTokenInfo = retrieveNetworkBridgeInfoInFromData(network)["TOKENS"][fromTokenAddr];
 
-    if (fromData[network] == undefined) {
-        throw(network + " is not supported");
-    }
-    const tokenInfo = fromData[network]["TOKENS"][tokenName];
-    if (tokenInfo == undefined) {
-        throw(tokenName + " does not exist in 'from' data");
+    if (fromTokenInfo == undefined) {
+        throw("Token with address " + fromTokenAddr + " does not exist in 'from' data");
     }
 
-    return tokenInfo;
+    return fromTokenInfo;
 }
 
-export function retrieveTokenInfoInToData(network: Network, tokenName: string): ToTokenInfo {
-    const toData: Record<string, any> = retrieveToData();
+export function retrieveTokenInfoInToData(network: NetworkInfo, toTokenAddr: string): ToTokenInfo {
+    const toTokenInfo: ToTokenInfo = retrieveNetworkBridgeInfoInToData(network)["TOKENS"][toTokenAddr];
 
-    if (toData[network] == undefined) {
-        throw(network + " is not supported");
-    }
-    const tokenInfo = toData[network]["TOKENS"][tokenName];
-    if (tokenInfo == undefined) {
-        throw(tokenName + " does not exist in 'to' data");
+    if (toTokenInfo == undefined) {
+        throw("Token with address " + toTokenAddr + " does not exist in 'to' data");
     }
 
-    return tokenInfo;
+    return toTokenInfo;
 }

@@ -2,22 +2,27 @@ import { Signer } from "ethers";
 
 import { FromNFT } from "../../../typechain-types";
 
-import Network from "../../types/network-enum";
+import { NETWORK } from "../../../env/network";
+import { NetworkInfo } from "../../types/dto/network-info";
 import { getSigner, Role } from "../../utils/get-signer";
 import { storeTokenInFromData } from "../../utils/data/store-deployed-token";
 import { deploy as deployFromNFT } from "../function/_fromnft";
 
-const network: Network = Network.LOCALHOST_8545;
+const network: NetworkInfo = NETWORK.LOCALHOST_8545;
 
 (async () => {
-    // Deploy
-    const deployer: Signer = await getSigner(Role.DEPLOYER, network);
+    // Deploy.
+    const deployer: Signer = getSigner(Role.DEPLOYER, network);
     const fromToken: FromNFT = await deployFromNFT(deployer);
     
-    // Store
-    storeTokenInFromData(network, await fromToken.name(), fromToken.address);
+    // Store.
+    storeTokenInFromData(network, fromToken.address, {
+        NAME: await fromToken.name(),
+        DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY: true,
+        DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY: true
+    });
 
-    // Log address
+    // Log address.
     console.log("Deployed FromNFT contract's address:");
     console.log(fromToken.address);
 })();

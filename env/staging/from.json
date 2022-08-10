@@ -1,26 +1,21 @@
 {
-    "LOCALHOST_8545": {
+    "97": {
+        "CHAIN_NAME": "BSC_TEST",
         "TOKENS": {
-            "FromNFT": {
-                "ADDRESS": "",
-                "DYNAMIC_FROMBRIDGE_COMPATIBILITY": true
+            "0x6883C84c99A9424D06c64fc03dc60b5003AbA4cE": {
+                "NAME": "Defi Warrior NFT",
+                "DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY": false,
+                "DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY": false,
+                "BODYPART": "0x32f9039ce3Cd16913B677fFC9e94cfa5f8849217"
             }
-        },
-        "DYNAMIC_FROMBRIDGE": ""
+        }
     },
-    "BSC": {
-        "TOKENS": {
-            "Defi Warrior NFT": {
-                "ADDRESS": "0x6883C84c99A9424D06c64fc03dc60b5003AbA4cE",
-                "DYNAMIC_FROMBRIDGE_COMPATIBILITY": false,
-                "STATIC_FROMBRIDGE": "",
-                "Defi Warrior BodyPart NFT": "0x32f9039ce3Cd16913B677fFC9e94cfa5f8849217"
-            }
-        },
-        "DYNAMIC_FROMBRIDGE": ""
+    "31337": {
+        "CHAIN_NAME": "LOCALHOST_8545",
+        "TOKENS": {}
     },
-    "POLYGON": {
-        "TOKENS": {},
-        "DYNAMIC_FROMBRIDGE": ""
+    "80001": {
+        "CHAIN_NAME": "POLYGON_TEST_MUMBAI",
+        "TOKENS": {}
     }
 }

@@ -2,7 +2,7 @@ import { Signer } from "ethers";
 
 import { DynamicBurningRevocableFromBridge, FromNFT, ToNftToBridge, ToNFT } from "../../../typechain-types";
 
-import Network from "../../types/network-enum";
+import { NetworkInfo } from "../../types/dto/network-info";
 import { deployConfig } from "../../utils/config";
 import { storeTokenInFromData, storeTokenInToData } from "../../utils/data/store-deployed-token";
 import { getSigner, Role } from "../../utils/get-signer";
@@ -10,20 +10,20 @@ import { deploy as deployFromNFT } from "../function/_fromnft";
 import { deploy as deployToNFT } from "../function/_tonft";
 import { deploy as deployDynamicBurningRevocableFromBridge } from "./dynamic-burning-revocable-frombridge";
 import { deploy as deployToNftToBridge } from "./_tonft-tobridge";
-import { storeDynamicFromBridge, storeToBridge } from "../../utils/data/store-deployed-bridge";
+import { storeDynamicBurningFromBridge, storeToBridge } from "../../utils/data/store-deployed-bridge";
 
-export default async function deployAll(fromNetwork: Network, toNetwork: Network) {
+export default async function deployAll(fromNetwork: NetworkInfo, toNetwork: NetworkInfo) {
     // Deploy "from" NFT and bridge.
-    const fromDeployer: Signer = await getSigner(Role.DEPLOYER, fromNetwork);
-    const validatorAddr: string = await (await getSigner(Role.VALIDATOR, fromNetwork)).getAddress();
+    const fromDeployer: Signer = getSigner(Role.DEPLOYER, fromNetwork);
+    const validatorAddr: string = await (getSigner(Role.VALIDATOR, fromNetwork)).getAddress();
     
     const fromToken: FromNFT = await deployFromNFT(fromDeployer);
     const dynamicBurningRevocableFromBridge: DynamicBurningRevocableFromBridge =
         await deployDynamicBurningRevocableFromBridge(fromDeployer, validatorAddr);
     
     // Deploy "to" NFT and bridge.
-    const toDeployer: Signer = await getSigner(Role.DEPLOYER, toNetwork);
-    const denierAddr: string = await (await getSigner(Role.DENIER, toNetwork)).getAddress();
+    const toDeployer: Signer = getSigner(Role.DEPLOYER, toNetwork);
+    const denierAddr: string = await (getSigner(Role.DENIER, toNetwork)).getAddress();
     
     const toToken: ToNFT = await deployToNFT(toDeployer);
     const toNftToBridge: ToNftToBridge = await deployToNftToBridge(
@@ -33,17 +33,24 @@ export default async function deployAll(fromNetwork: Network, toNetwork: Network
         denierAddr,
         deployConfig);
 
-    // Store tokens
-    let fromTokenName = await fromToken.name();
-    let toTokenName = await toToken.name();
-    storeTokenInFromData(fromNetwork, fromTokenName, fromToken.address);
-    storeTokenInToData(toNetwork, toTokenName, toToken.address);
-    
-    // Store bridges
-    storeDynamicFromBridge(fromNetwork, fromTokenName);
-    storeToBridge(toNetwork, toTokenName, toNftToBridge.address);
+    // Set allow mint to bridge.
+    toToken.connect(toDeployer).setAllowMint(true);
 
-    // Log address
+    // Store tokens.
+    storeTokenInFromData(fromNetwork, fromToken.address, {
+        NAME: await fromToken.name(),
+        DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY: true,
+        DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY: true
+    });
+    storeTokenInToData(toNetwork, toToken.address, {
+        NAME: await toToken.name()
+    });
+    
+    // Store bridges.
+    storeDynamicBurningFromBridge(fromNetwork, dynamicBurningRevocableFromBridge.address, true);
+    storeToBridge(toNetwork, toToken.address, toNftToBridge.address, true, true);
+
+    // Log address.
     console.log("Deployed FromNFT contract's address:");
     console.log(fromToken.address);
 

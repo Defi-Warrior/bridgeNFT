@@ -1,12 +1,6 @@
 {
-    "LOCALHOST_8545": {
-        "URL": "http://127.0.0.1:8545",
-        "TOKENS": {
-            "FromNFT": {
-                "ADDRESS": "",
-                "DYNAMIC_FROMBRIDGE_COMPATIBILITY": true
-            }
-        },
-        "DYNAMIC_FROMBRIDGE": ""
+    "31337": {
+        "CHAIN_NAME": "LOCALHOST_8545",
+        "TOKENS": {}
     }
 }
