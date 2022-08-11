@@ -21,10 +21,11 @@ import { Validator }
 import { TokenOwner }
     from "./token-owner";
 
-const fromNetwork:      NetworkInfo = NETWORK.LOCALHOST_8545;
-const toNetwork:        NetworkInfo = NETWORK.LOCALHOST_8546;
-const fromTokenAddr:    string = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-const toTokenAddr:      string = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+const fromNetwork:      NetworkInfo = NETWORK.BSC_TEST;
+const toNetwork:        NetworkInfo = NETWORK.POLYGON_TEST_MUMBAI;
+const fromTokenAddr:    string      = "0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79";
+const toTokenAddr:      string      = "0xfd4D9e1122792dFF031e94c4378FaC48322dbF3e";
+const tokenId:          BigNumber   = BigNumber.from(1);
 
 async function main() {
     const fromBridgeAddr:   string = retrieveFromBridgeAddress(fromNetwork, fromTokenAddr);
@@ -37,11 +38,11 @@ async function main() {
     const tokenOwner: TokenOwner = new TokenOwner(await fromOwnerSigner.getAddress(), ownerConfig);
 
     // Mint token on FromNFT for test
-    const tokenId: BigNumber = BigNumber.from(1);
-    const tokenUri: string = "Du ne";
-    const contractOwner: Signer = getSigner(Role.DEPLOYER, fromNetwork);
-    const fromToken: FromNFT = await ethers.getContractAt("FromNFT", fromTokenAddr, contractOwner);
-    await fromToken.mint(tokenOwner.address, tokenId, tokenUri);
+    // const tokenId: BigNumber = BigNumber.from(1);
+    // const tokenUri: string = "Du ne";
+    // const contractOwner: Signer = getSigner(Role.DEPLOYER, fromNetwork);
+    // const fromToken: FromNFT = await ethers.getContractAt("FromNFT", fromTokenAddr, contractOwner);
+    // await fromToken.mint(tokenOwner.address, tokenId, tokenUri);
 
     const bridgeContext: BridgeContext = new BridgeContext(
         fromNetwork.CHAIN_ID, fromTokenAddr, fromBridgeAddr,

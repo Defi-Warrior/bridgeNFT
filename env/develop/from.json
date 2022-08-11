@@ -11,7 +11,16 @@
                     "VALIDATOR_REVOCABILITY": true
                 },
                 "BODYPART": "0x363170404fe6C2EF7dCe2cDC293823b8df7994d8"
+            },
+            "0xCF74aDC2c44aCE9b98C435Cc16d98fEb96bea268": {
+                "NAME": "FromNFT",
+                "DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY": true,
+                "DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY": true
             }
+        },
+        "DYNAMIC_BURNING_FROMBRIDGE": {
+            "ADDRESS": "0x9B7d5eb78f7BfeE41299049292385ED6C5021E59",
+            "VALIDATOR_REVOCABILITY": true
         }
     },
     "31337": {
@@ -25,7 +34,11 @@
                 "NAME": "Defi Warrior NFT",
                 "DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY": false,
                 "DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY": false,
-                "BODYPART": "0x30A03fA3ED43E2F256BefC0f4343096bB6c339ef"
+                "BODYPART": "0x30A03fA3ED43E2F256BefC0f4343096bB6c339ef",
+                "STATIC_FROMBRIDGE": {
+                    "ADDRESS": "0x389C4964b9e8C6d489184f8c59E78060C7b172e8",
+                    "VALIDATOR_REVOCABILITY": true
+                }
             }
         }
     }

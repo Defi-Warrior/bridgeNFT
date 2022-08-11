@@ -4,7 +4,12 @@
         "TOKENS": {
             "0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79": {
                 "NAME": "Defi Warrior NFT",
-                "NFT_MANAGER": "0xB056101CC82C6f9D819295F39c2f8867d61A4042"
+                "NFT_MANAGER": "0xB056101CC82C6f9D819295F39c2f8867d61A4042",
+                "TOBRIDGE": {
+                    "ADDRESS": "0x9F79071419348b2379355cBB3e86071c08955Af0",
+                    "SUPPORT_CLAIM": true,
+                    "VALIDATOR_REVOCABILITY": true
+                }
             }
         }
     },
@@ -17,7 +22,20 @@
         "TOKENS": {
             "0xfd4D9e1122792dFF031e94c4378FaC48322dbF3e": {
                 "NAME": "Defi Warrior NFT",
-                "NFT_MANAGER": "0x2122e5B3c13A8B1746628a9042Af948D87d38Fd0"
+                "NFT_MANAGER": "0x2122e5B3c13A8B1746628a9042Af948D87d38Fd0",
+                "TOBRIDGE": {
+                    "ADDRESS": "0x2E2CAC3b91c082c22ac124e12895b23aD1A98f28",
+                    "SUPPORT_CLAIM": true,
+                    "VALIDATOR_REVOCABILITY": true
+                }
+            },
+            "0x9B7d5eb78f7BfeE41299049292385ED6C5021E59": {
+                "NAME": "ToNFT",
+                "TOBRIDGE": {
+                    "ADDRESS": "0x9F79071419348b2379355cBB3e86071c08955Af0",
+                    "SUPPORT_CLAIM": true,
+                    "VALIDATOR_REVOCABILITY": true
+                }
             }
         }
     }
