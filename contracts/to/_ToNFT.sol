@@ -4,17 +4,26 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract ToNFT is ERC721URIStorage, Ownable {
+import "./interfaces/IToTokenMinter.sol";
+import "./interfaces/IValidatorRevocationAnnouncementReceiver.sol";
+
+contract ToNFT is ERC721URIStorage, IToTokenMinter, IValidatorRevocationAnnouncementReceiver, Ownable {
     constructor() ERC721("ToNFT", "TO") {}
 
     address public toBridge;
+    bool public allowMint = false;
 
     function setToBridge(address toBridge_) public onlyOwner {
         toBridge = toBridge_;
     }
 
+    function setAllowMint(bool allowMint_) public onlyOwner {
+        allowMint = allowMint_;
+    }
+
     function mint(address to, string memory tokenUri) public returns(uint256) {
-        require(msg.sender == toBridge, "Not allowed");
+        require(msg.sender == toBridge, "toBridge: Not allowed to mint");
+        require(allowMint, "allowMint: Not allowed to mint");
 
         uint256 tokenId = _findAvailableTokenId();
 
@@ -44,5 +53,14 @@ contract ToNFT is ERC721URIStorage, Ownable {
             i++;
         }
         return tokenId;
+    }
+
+    function isCurrentlyMintable() external override view returns(bool) {
+        return allowMint;
+    }
+
+    function receiveAnnouncement(address revokedValidator, address newValidator, address revoker) external override {
+        require(msg.sender == toBridge, "receiveAnnouncement: Not from toBridge");
+        allowMint = false;
     }
 }

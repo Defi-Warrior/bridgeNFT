@@ -1,182 +1,226 @@
-// Types
-import { BigNumber, BytesLike, Signer, utils } from "ethers";
-import { TypedEventFilter } from "../typechain-types/common";
-import { FromNFT, IFromBridge, IToBridge, ToNFT } from "../typechain-types";
-import { CommitEvent } from "../typechain-types/contracts/interfaces/IFromBridge";
-
 // Libraries
-import { keccak256 } from "ethers/lib/utils";
+import { BigNumber, BytesLike, Signer, utils } from "ethers";
+import { ethers } from "hardhat";
 import sodium from "libsodium-wrappers";
+
+// Typechain
+import { TypedEventFilter } from "../typechain-types/common";
+import { IERC721, IFromBridge } from "../typechain-types";
+import { CommitEvent } from "../typechain-types/contracts/from/interfaces/IFromBridge";
 
 // Project's modules
 import ValidatorConfig from "./types/config/validator-config";
 import { BridgeRequest, BridgeRequestId } from "./types/dto/bridge-request";
 import { OwnerSignature } from "./utils/crypto/owner-signature";
 import { ValidatorSignature } from "./utils/crypto/validator-signature";
+import { getAddress, getSigner, Role } from "./utils/get-signer";
+import { getNetworkInfo } from "../env/network";
 
 export class Validator {
     public readonly address: string;
-    private signer: Signer;
-    private config: ValidatorConfig;
+    private _config: ValidatorConfig;
 
-    private commitKey: Uint8Array;
+    private _commitKey: Uint8Array;
 
-    private constructor(address: string, signer: Signer, config: ValidatorConfig) {
-        this.address = address;
-        this.signer = signer;
-        this.config = config;
-        this.commitKey = sodium.crypto_auth_keygen();
+    private constructor(config: ValidatorConfig) {
+        this.address = getAddress(Role.VALIDATOR);
+        this._config = config;
+        this._commitKey = sodium.crypto_auth_keygen();
     }
 
-    public static async instantiate(signer: Signer, config: ValidatorConfig): Promise<Validator> {
+    public static async instantiate(config: ValidatorConfig): Promise<Validator> {
         await sodium.ready;
-        return new Validator(await signer.getAddress(), signer, config);
+        return new Validator(config);
     }
 
-    public async processRequest(
-        fromToken: FromNFT, fromBridge: IFromBridge,
-        toToken: ToNFT, toBridge: IToBridge,
-        request: BridgeRequest
-    ) {
-        // Check all requirements.
-        await this._isValid(
-            fromToken, fromBridge,
-            toToken, toBridge,
-            request);
+    private static _getSigner(chainId: number): Signer {
+        return getSigner(Role.VALIDATOR, getNetworkInfo(chainId));
+    }
 
-        const { id: { tokenOwner, tokenId, requestNonce }, ownerSignature } = request;
-        
+    /* ********************************************************************************************** */
+
+    public async processRequest(request: BridgeRequest, ownerSignature: BytesLike) {
+        // Check all requirements.
+        await this._isValid(request, ownerSignature);
+
+        const { id: { context, tokenOwner, requestNonce }, tokenId } = request;
+
+        const fromValidatorSigner: Signer = Validator._getSigner(context.fromChainId);
+        const fromBridge: IFromBridge = await ethers.getContractAt("IFromBridge", context.fromBridgeAddr, fromValidatorSigner);
+ 
         // Get token URI.
-        const tokenUri: string = await fromToken.connect(this.signer).tokenURI(tokenId);
+        const tokenUri: BytesLike = await fromBridge.getTokenUri(context.fromTokenAddr, tokenId);
 
         // Generate commitment for this request.
         const commitment: BytesLike = this._generateCommitment(request.id);
 
         // Set requestTimestamp to current unix time.
-        const requestTimestamp: BigNumber = this._unixTimeInSeconds();
+        const requestTimestamp: BigNumber = Validator._unixTimeInSeconds();
 
         // Sign validator signature.
-        const validatorSignature: BytesLike = await ValidatorSignature.sign(
-            this.signer,
-            fromToken.address, fromBridge.address,
-            toToken.address, toBridge.address,
-            tokenOwner,
-            tokenId, tokenUri,
-            commitment, requestTimestamp
+        const validatorSignature: BytesLike = await Validator._signValidatorSignature(
+            fromValidatorSigner,
+            request,
+            tokenUri,
+            commitment,
+            requestTimestamp
         );
 
         // Send commit transaction.
-        await fromBridge.connect(this.signer).commit(
-            tokenOwner,
-            tokenId, requestNonce,
-            commitment, requestTimestamp,
+        await fromBridge.commit(
+            context.fromTokenAddr,
+            {
+                toChainId: context.toChainId,
+                toToken: context.toTokenAddr,
+                toBridge: context.toBridgeAddr
+            },
+            {
+                tokenOwner: tokenOwner,
+                requestNonce: requestNonce
+            },
+            tokenId,
+            commitment,
+            requestTimestamp,
+            "0x00",
             ownerSignature,
             validatorSignature
         );
     }
 
-    private async _isValid(
-        fromToken: FromNFT, fromBridge: IFromBridge,
-        toToken: ToNFT, toBridge: IToBridge,
-        request: BridgeRequest
-    ) {
-        // Parse request.
-        const { id: { tokenOwner, tokenId, requestNonce }, ownerSignature } = request;
-        
+    /* ********************************************************************************************** */
+
+    private async _isValid(request: BridgeRequest, ownerSignature: BytesLike) {
         // Check signature and freshness.
-        await this._verifyOwnerSignature(
-            tokenOwner,
-            fromToken.address, fromBridge.address,
-            toToken.address, toBridge.address,
-            tokenId, requestNonce,
-            ownerSignature
-        );
-        
+        await this._verifyOwnerSignature(request, ownerSignature);
+
+        // Parse request.
+        const { id: { context, tokenOwner, requestNonce }, tokenId } = request;
+
+        // Prepare contracts.
+        const fromValidatorSigner: Signer = Validator._getSigner(context.fromChainId);
+        const fromToken: IERC721 = await ethers.getContractAt("IERC721", context.fromTokenAddr, fromValidatorSigner);
+        const fromBridge: IFromBridge = await ethers.getContractAt("IFromBridge", context.fromBridgeAddr, fromValidatorSigner);
+
         // Check owner.
-        const fromToken_: FromNFT = fromToken.connect(this.signer);
-        if (await fromToken_.ownerOf(tokenId) !== tokenOwner) {
+        if (await fromToken.ownerOf(tokenId) !== tokenOwner) {
             throw("Requester is not token owner");
         }
 
         // Check approval.
-        if (!  (await fromToken_.isApprovedForAll(tokenOwner, fromBridge.address) ||
-                await fromToken_.getApproved(tokenId) === fromBridge.address) ) {
+        if (!  (await fromToken.isApprovedForAll(tokenOwner, context.fromBridgeAddr) ||
+                await fromToken.getApproved(tokenId) === context.fromBridgeAddr) ) {
             throw("FromBridge is not approved on token");
         }
 
         // Check request nonce.
-        if (! (await fromBridge.connect(this.signer).getRequestNonce(tokenId)).eq(requestNonce) ) {
+        if (! (await fromBridge["getRequestNonce(address)"](tokenOwner)).eq(requestNonce) ) {
             throw("Invalid request nonce");
         }
     }
 
-    private async _verifyOwnerSignature(
-        tokenOwner: string,
-        fromTokenAddr: string, fromBridgeAddr: string,
-        toTokenAddr: string, toBridgeAddr: string,
-        tokenId: BigNumber, requestNonce: BigNumber,
-        ownerSignature: BytesLike
-    ) {
+    private async _verifyOwnerSignature(request: BridgeRequest, ownerSignature: BytesLike) {
+        const { id: { context, tokenOwner, requestNonce }, tokenId } = request;
+
         // Check timestamp.
 
         // Regenerate challenge.
 
         // Verify signature.
-        if (! await OwnerSignature.verify(
-            tokenOwner,
-            fromTokenAddr, fromBridgeAddr,
-            toTokenAddr, toBridgeAddr,
-            tokenId, requestNonce,
-            ownerSignature
-        ))
+        const ownerMessageContainer: OwnerSignature.MessageContainer = {
+            fromChainId:    BigNumber.from(context.fromChainId),
+            fromToken:      context.fromTokenAddr,
+            fromBridge:     context.fromBridgeAddr,
+            toChainId:      BigNumber.from(context.toChainId),
+            toToken:        context.toTokenAddr,
+            toBridge:       context.toBridgeAddr,
+            requestNonce:   requestNonce,
+            tokenId:        tokenId,
+            authnChallenge: "0x00"
+        };
+        if (! OwnerSignature.verify(tokenOwner, ownerMessageContainer, ownerSignature)) {
             throw("Invalid owner signature");
+        }
     }
 
+    /* ********************************************************************************************** */
+
     private _generateCommitment(requestId: BridgeRequestId): BytesLike {
-        const secret: Uint8Array = sodium.crypto_auth(this._requestIdToString(requestId), this.commitKey);
-        const commitment: BytesLike = keccak256(secret);
+        const secret: Uint8Array = sodium.crypto_auth(Validator._requestIdToString(requestId), this._commitKey);
+        const commitment: BytesLike = utils.keccak256(secret);
         return commitment;
     }
 
-    public async revealSecret(fromBridge: IFromBridge, requestId: BridgeRequestId): Promise<BytesLike> {
-        await this._checkCommitTxFinalized(fromBridge, requestId);
-        const secret: Uint8Array = sodium.crypto_auth(this._requestIdToString(requestId), this.commitKey);
+    public async revealSecret(requestId: BridgeRequestId): Promise<BytesLike> {
+        await this._checkCommitTxFinalized(requestId);
+        const secret: Uint8Array = sodium.crypto_auth(Validator._requestIdToString(requestId), this._commitKey);
         return secret;
     }
 
-    private async _checkCommitTxFinalized(fromBridge: IFromBridge, requestId: BridgeRequestId) {
-        const filter: TypedEventFilter<CommitEvent> = fromBridge.filters.Commit(
-            requestId.tokenOwner,
-            requestId.tokenId,
-            requestId.requestNonce);
+    private static _requestIdToString(requestId: BridgeRequestId): string {
+        const { context, tokenOwner, requestNonce } = requestId;
+        return  "fromChainId:"  + utils.hexZeroPad(BigNumber.from(context.fromChainId).toHexString(), 8)    + "||" +
+                "fromToken:"    + utils.hexZeroPad(context.fromTokenAddr, 20)                               + "||" +
+                "fromBridge:"   + utils.hexZeroPad(context.fromBridgeAddr, 20)                              + "||" +
+                "toChainId:"    + utils.hexZeroPad(BigNumber.from(context.toChainId).toHexString(), 8)      + "||" +
+                "toToken:"      + utils.hexZeroPad(context.toTokenAddr, 20)                                 + "||" +
+                "toBridge:"     + utils.hexZeroPad(context.toBridgeAddr, 20)                                + "||" +
+                "tokenOwner:"   + utils.hexZeroPad(tokenOwner, 20)                                          + "||" +
+                "requestNonce:" + utils.hexZeroPad(requestNonce.toHexString(), 32);
+    }
+
+    private async _checkCommitTxFinalized(requestId: BridgeRequestId) {
+        const fromValidatorSigner: Signer = Validator._getSigner(requestId.context.fromChainId);
+        const fromBridge: IFromBridge = await ethers.getContractAt("IFromBridge", requestId.context.fromBridgeAddr, fromValidatorSigner);
         
-        const events: CommitEvent[] = await fromBridge.connect(this.signer).queryFilter(filter);
+        const filter: TypedEventFilter<CommitEvent> = fromBridge.filters.Commit(
+            null, null, null, null,
+            requestId.tokenOwner,
+            requestId.requestNonce,
+            null, null, null);
+        
+        const events: CommitEvent[] = await fromBridge.queryFilter(filter);
 
         if (events.length == 0) {
             throw("Commit transaction for this request does not exist or has not yet been mined")
         }
         const event: CommitEvent = events[events.length - 1];
 
-        if (await this._newestBlockNumber() < event.blockNumber + this.config.NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION) {
-            throw("Commit transaction is not finalized yet")
-        }
-    }
-
-    private async _newestBlockNumber(): Promise<number> {
-        const provider = this.signer.provider;
-        if (provider === undefined) {
+        if (fromValidatorSigner.provider == undefined) {
             throw("Signer is not connected to any provider");
         }
-        return provider.getBlockNumber();
+        if (await fromValidatorSigner.provider.getBlockNumber() < event.blockNumber + this._config.NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION) {
+            throw("Commit transaction is not finalized yet");
+        }
     }
 
-    private _unixTimeInSeconds(): BigNumber {
+    /* ********************************************************************************************** */
+
+    private static _unixTimeInSeconds(): BigNumber {
         return BigNumber.from(Math.floor(Date.now() / 1000));
     }
 
-    private _requestIdToString(requestId: BridgeRequestId): string {
-        return  "tokenOwner:"   + utils.hexZeroPad(requestId.tokenOwner, 20)                    + "||" +
-                "tokenId:"      + utils.hexZeroPad(requestId.tokenId.toHexString(), 32)         + "||" +
-                "requestNonce:" + utils.hexZeroPad(requestId.requestNonce.toHexString(), 32);
+    private static async _signValidatorSignature(
+        validatorSigner: Signer,
+        request: BridgeRequest,
+        tokenUri: BytesLike,
+        commitment: BytesLike,
+        requestTimestamp: BigNumber
+    ): Promise<BytesLike> {
+        const { id: { context, tokenOwner }, tokenId } = request;
+        const validatorMessageContainer: ValidatorSignature.MessageContainer = {
+            fromChainId:        BigNumber.from(context.fromChainId),
+            fromToken:          context.fromTokenAddr,
+            fromBridge:         context.fromBridgeAddr,
+            toChainId:          BigNumber.from(context.toChainId),
+            toToken:            context.toTokenAddr,
+            toBridge:           context.toBridgeAddr,
+            tokenOwner:         tokenOwner,
+            tokenId:            tokenId,
+            tokenUri:           tokenUri,
+            commitment:         commitment,
+            requestTimestamp:   requestTimestamp
+        };
+
+        return ValidatorSignature.sign(validatorSigner, validatorMessageContainer);
     }
 }

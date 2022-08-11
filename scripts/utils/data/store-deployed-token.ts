@@ -1,56 +1,45 @@
-import Network from "../../types/network-enum";
+import { NetworkInfo } from "../../types/dto/network-info";
+import { FromTokenInfo, ToTokenInfo } from "../../types/dto/token-info";
 import { retrieveFromData, retrieveToData, storeFromData, storeToData } from "./env-io";
 
 export function storeTokenInFromData(
-    network: Network,
-    tokenName: string,
-    tokenAddr: string,
-    isDynamicFromBridgeCompatible: boolean = true
+    network: NetworkInfo,
+    fromTokenAddr: string,
+    fromTokenInfo: FromTokenInfo
 ) {
-    const fromData: Record<string, any> = retrieveFromData();
+    if (fromTokenInfo.DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY &&
+        !fromTokenInfo.DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY) {
+        throw("Token that is compatible with BurningFromBridge is automatically compatible with HoldingFromBridge");
+    }
+    if (!fromTokenInfo.DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY &&
+        !fromTokenInfo.DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY &&
+        fromTokenInfo.STATIC_FROMBRIDGE == undefined) {
+        throw("StaticFromBridge for this token must be specified");
+    }
+    
+    const fromData = retrieveFromData();
 
-    if (fromData[network] == undefined) {
-        throw(network + " is not supported");
+    if (fromData[String(network.CHAIN_ID)] == undefined) {
+        throw(network.NAME + " is not supported");
     }
 
-    if (isDynamicFromBridgeCompatible) {
-        fromData[network]["TOKENS"][tokenName] = {
-            ADDRESS: tokenAddr,
-            DYNAMIC_FROMBRIDGE_COMPATIBILITY: true
-        }
-    } else {
-        fromData[network]["TOKENS"][tokenName] = {
-            ADDRESS: tokenAddr,
-            DYNAMIC_FROMBRIDGE_COMPATIBILITY: false,
-            STATIC_FROMBRIDGE: ""
-        }
-    }
+    fromData[String(network.CHAIN_ID)]["TOKENS"][fromTokenAddr] = fromTokenInfo;
 
     storeFromData(fromData);
 }
 
 export function storeTokenInToData(
-    network: Network,
-    tokenName: string,
-    tokenAddr: string,
-    toBridgeAddr?: string
+    network: NetworkInfo,
+    toTokenAddr: string,
+    toTokenInfo: ToTokenInfo
 ) {
-    const toData: Record<string, any> = retrieveToData();
+    const toData = retrieveToData();
 
-    if (toData[network] == undefined) {
-        throw(network + " is not supported");
+    if (toData[String(network.CHAIN_ID)] == undefined) {
+        throw(network.NAME + " is not supported");
     }
 
-    if (toBridgeAddr == undefined) {
-        toData[network]["TOKENS"][tokenName] = {
-            ADDRESS: tokenAddr
-        }
-    } else {
-        toData[network]["TOKENS"][tokenName] = {
-            ADDRESS: tokenAddr,
-            TOBRIDGE: toBridgeAddr
-        }
-    }
+    toData[String(network.CHAIN_ID)]["TOKENS"][toTokenAddr] = toTokenInfo;
 
     storeToData(toData);
 }

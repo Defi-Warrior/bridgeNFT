@@ -1,56 +1,93 @@
-import Network from "../../types/network-enum";
+import { NetworkInfo } from "../../types/dto/network-info";
+import { FromTokenInfo, ToTokenInfo } from "../../types/dto/token-info";
 import { retrieveFromData, retrieveToData, storeFromData, storeToData } from "./env-io";
 
-export function storeDynamicFromBridge(
-    network: Network,
-    dynamicFromBridgeAddr: string
+export function storeDynamicBurningFromBridge(
+    network: NetworkInfo,
+    dynamicBurningFromBridgeAddr: string,
+    isRevocable: boolean
 ) {
-    const fromData: Record<string, any> = retrieveFromData();
+    const fromData = retrieveFromData();
 
-    if (fromData[network] == undefined) {
-        throw(network + " is not supported");
+    if (fromData[String(network.CHAIN_ID)] == undefined) {
+        throw(network.NAME + " is not supported");
     }
 
-    fromData[network]["DYNAMIC_FROMBRIDGE"] = dynamicFromBridgeAddr;
+    fromData[String(network.CHAIN_ID)]["DYNAMIC_BURNING_FROMBRIDGE"] = {
+        ADDRESS: dynamicBurningFromBridgeAddr,
+        VALIDATOR_REVOCABILITY: isRevocable
+    };
+
+    storeFromData(fromData);
+}
+
+export function storeDynamicHoldingFromBridge(
+    network: NetworkInfo,
+    dynamicHoldingFromBridgeAddr: string,
+    isRevocable: boolean
+) {
+    const fromData = retrieveFromData();
+
+    if (fromData[String(network.CHAIN_ID)] == undefined) {
+        throw(network.NAME + " is not supported");
+    }
+
+    fromData[String(network.CHAIN_ID)]["DYNAMIC_HOLDING_FROMBRIDGE"] = {
+        ADDRESS: dynamicHoldingFromBridgeAddr,
+        VALIDATOR_REVOCABILITY: isRevocable
+    };
 
     storeFromData(fromData);
 }
 
 export function storeStaticFromBridge(
-    network: Network,
-    tokenName: string,
-    staticFromBridgeAddr: string
+    network: NetworkInfo,
+    fromTokenAddr: string,
+    staticFromBridgeAddr: string,
+    isRevocable: boolean
 ) {
-    const fromData: Record<string, any> = retrieveFromData();
+    const fromData = retrieveFromData();
 
-    if (fromData[network] == undefined) {
-        throw(network + " is not supported");
+    if (fromData[String(network.CHAIN_ID)] == undefined) {
+        throw(network.NAME + " is not supported");
     }
-    if (fromData[network]["TOKENS"][tokenName] == undefined) {
-        throw(tokenName + " does not exist in 'from' data");
+    const fromTokenInfo: FromTokenInfo = fromData[String(network.CHAIN_ID)]["TOKENS"][fromTokenAddr];
+    if (fromTokenInfo == undefined) {
+        throw("Token with address " + fromTokenAddr + " does not exist in 'from' data");
     }
 
-    fromData[network]["TOKENS"][tokenName]["DYNAMIC_FROMBRIDGE_COMPATIBILITY"] = false;
-    fromData[network]["TOKENS"][tokenName]["STATIC_FROMBRIDGE"] = staticFromBridgeAddr;
+    fromTokenInfo["DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY"] = false;
+    fromTokenInfo["DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY"] = false;
+    fromTokenInfo["STATIC_FROMBRIDGE"] = {
+        ADDRESS: staticFromBridgeAddr,
+        VALIDATOR_REVOCABILITY: isRevocable
+    };
 
     storeFromData(fromData);
 }
 
 export function storeToBridge(
-    network: Network,
-    tokenName: string,
-    toBridgeAddr: string
+    network: NetworkInfo,
+    toTokenAddr: string,
+    toBridgeAddr: string,
+    supportClaim: boolean,
+    isRevocable: boolean
 ) {
-    const toData: Record<string, any> = retrieveToData();
+    const toData = retrieveToData();
 
-    if (toData[network] == undefined) {
-        throw(network + " is not supported");
+    if (toData[String(network.CHAIN_ID)] == undefined) {
+        throw(network.NAME + " is not supported");
     }
-    if (toData[network]["TOKENS"][tokenName] == undefined) {
-        throw(tokenName + " does not exist in 'to' data");
+    const toTokenInfo: ToTokenInfo = toData[String(network.CHAIN_ID)]["TOKENS"][toTokenAddr];
+    if (toTokenInfo == undefined) {
+        throw("Token with address " + toTokenAddr + " does not exist in 'to' data");
     }
 
-    toData[network]["TOKENS"][tokenName]["TOBRIDGE"] = toBridgeAddr;
+    toTokenInfo["TOBRIDGE"] = {
+        ADDRESS: toBridgeAddr,
+        SUPPORT_CLAIM: supportClaim,
+        VALIDATOR_REVOCABILITY: isRevocable
+    };
 
     storeToData(toData);
 }

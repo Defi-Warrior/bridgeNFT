@@ -63,7 +63,7 @@ if not SIG_VERIFY(publicKey, tokenId || requestNonce || challenge, signature) th
 ###### COMMIT (ownerAddr, tokenId, requestNonce, timestamp, signature)
 ```
 AUTHENTICATE_VERIFY(ownerAddr, tokenId, requestNonce, timestamp, signature)
-secret <- PRF(commitKey[n], ownerAddr || tokenId || requestNonce)
+secret <- PRF(commitKey[n], bridgeContext || ownerAddr || requestNonce)
 commitment <- HASH(secret)
 keyIndicator <- AEAD_ENC(indexEncKey, n, ownerAddr || tokenId || requestNonce)
 return (commitment, keyIndicator)
@@ -72,6 +72,6 @@ return (commitment, keyIndicator)
 ###### REVEAL (ownerAddr, tokenId, requestNonce, keyIndicator)
 ```
 i <- AEAD_DEC(indexEncKey, keyIndicator, ownerAddr || tokenId || requestNonce)
-secret <- PRF(commitKey[i], ownerAddr || tokenId || requestNonce)
+secret <- PRF(commitKey[i], bridgeContext || ownerAddr || requestNonce)
 return secret
 ```

@@ -1,23 +1,19 @@
 {
-    "LOCALHOST_8546": {
+    "97": {
+        "CHAIN_NAME": "BSC_TEST",
         "TOKENS": {
-            "ToNFT": {
-                "ADDRESS": "",
-                "TOBRIDGE": ""
+            "0x6883C84c99A9424D06c64fc03dc60b5003AbA4cE": {
+                "NAME": "Defi Warrior NFT",
+                "NFT_MANAGER": "0x5fd2F68591edEA97Ee904dad3a7fd3916263E8A8"
             }
         }
     },
-    "BSC": {
-        "TOKENS": {
-            "Defi Warrior NFT": {
-                "ADDRESS": "0x6883C84c99A9424D06c64fc03dc60b5003AbA4cE",
-                "TOBRIDGE": ""
-            }
-        }
+    "31338": {
+        "CHAIN_NAME": "LOCALHOST_8546",
+        "TOKENS": {}
     },
-    "POLYGON": {
-        "TOKENS": {
-
-        }
+    "80001": {
+        "CHAIN_NAME": "POLYGON_TEST_MUMBAI",
+        "TOKENS": {}
     }
 }
