@@ -34,7 +34,8 @@ export default async function deployAll(fromNetwork: NetworkInfo, toNetwork: Net
         deployConfig);
 
     // Set allow mint to bridge.
-    toToken.connect(toDeployer).setAllowMint(true);
+    await toToken.connect(toDeployer).setToBridge(toNftToBridge.address);
+    await toToken.connect(toDeployer).setAllowMint(true);
 
     // Store tokens.
     storeTokenInFromData(fromNetwork, fromToken.address, {

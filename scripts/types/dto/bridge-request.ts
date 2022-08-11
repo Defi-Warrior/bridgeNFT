@@ -43,15 +43,12 @@ export class BridgeRequest {
     public readonly id: BridgeRequestId;
     public readonly tokenId: BigNumber;
     // public readonly challengeTimestamp: number;
-    public readonly ownerSignature: BytesLike;
     
     public constructor(
         requestId: BridgeRequestId,
-        tokenId: BigNumber,
-        ownerSignature: BytesLike
+        tokenId: BigNumber
     ) {
         this.id = requestId;
         this.tokenId = tokenId;
-        this.ownerSignature = ownerSignature;
     }
 }

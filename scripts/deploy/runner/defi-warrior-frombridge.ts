@@ -18,7 +18,7 @@ const fromTokenAddr: string = "";
     const deployer: Signer = getSigner(Role.DEPLOYER, network);
     const validatorAddr: string = await (getSigner(Role.VALIDATOR, network)).getAddress();
     const defiWarriorTokenInfo: FromTokenInfo = retrieveTokenInfoInFromData(network, fromTokenAddr);
-    const fromBodyPartAddr: string = defiWarriorTokenInfo[""];
+    const fromBodyPartAddr: string = defiWarriorTokenInfo["BODYPART"];
 
     const defiWarriorFromBridge: DefiWarriorFromBridge =
         await deployDefiWarriorFromBridge(deployer, validatorAddr, fromTokenAddr, fromBodyPartAddr);

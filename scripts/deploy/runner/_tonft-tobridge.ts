@@ -10,7 +10,7 @@ import { getSigner, Role } from "../../utils/get-signer";
 import { deploy as deployToNftToBridge } from "../function/_tonft-tobridge";
 
 const network: NetworkInfo = NETWORK.LOCALHOST_8546;
-const toTokenAddr: string = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
+const toTokenAddr: string = "";
 
 (async () => {
     // Deploy.
