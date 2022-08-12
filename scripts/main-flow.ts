@@ -25,7 +25,7 @@ const fromNetwork:      NetworkInfo = NETWORK.BSC_TEST;
 const toNetwork:        NetworkInfo = NETWORK.POLYGON_TEST_MUMBAI;
 const fromTokenAddr:    string      = "0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79";
 const toTokenAddr:      string      = "0xfd4D9e1122792dFF031e94c4378FaC48322dbF3e";
-const tokenId:          BigNumber   = BigNumber.from(1);
+const tokenId:          BigNumber   = BigNumber.from(0);
 
 async function main() {
     const fromBridgeAddr:   string = retrieveFromBridgeAddress(fromNetwork, fromTokenAddr);
@@ -34,15 +34,20 @@ async function main() {
     const validator: Validator = await Validator.instantiate(validatorConfig);
 
     const fromOwnerSigner: Signer = await getTokenOwnerSigner(fromNetwork);
+    // console.log(await fromOwnerSigner.getBalance());
     const toOwnerSigner:   Signer = await getTokenOwnerSigner(toNetwork);
+    // console.log(await toOwnerSigner.getBalance());
     const tokenOwner: TokenOwner = new TokenOwner(await fromOwnerSigner.getAddress(), ownerConfig);
 
     // Mint token on FromNFT for test
-    // const tokenId: BigNumber = BigNumber.from(1);
+    // console.log("0 Mint");
+    // const tokenId: BigNumber = BigNumber.from(0);
     // const tokenUri: string = "Du ne";
     // const contractOwner: Signer = getSigner(Role.DEPLOYER, fromNetwork);
     // const fromToken: FromNFT = await ethers.getContractAt("FromNFT", fromTokenAddr, contractOwner);
-    // await fromToken.mint(tokenOwner.address, tokenId, tokenUri);
+    // const mintTx = await fromToken.mint(tokenOwner.address, tokenId, tokenUri);
+    // await mintTx.wait();
+    // console.log("0 Done");
 
     const bridgeContext: BridgeContext = new BridgeContext(
         fromNetwork.CHAIN_ID, fromTokenAddr, fromBridgeAddr,
@@ -65,20 +70,26 @@ async function bridge(
     /// SIDE: OWNER (FRONTEND)
 
     // Step 1a: Approve FromBridge for all tokens.
+    console.log("1 Approve FromBridge");
     await tokenOwner.approveForAll(fromOwnerSigner, fromTokenAddr, fromBridgeAddr);
+    console.log("1 Done");
     // Could alternatively approve for the requested token only by calling:
     // tokenOwner.approve(fromToken, fromBridge, tokenId);
         
     // Step 1b: Get request nonce from FromBridge.
+    console.log("2 Owner getRequestNonce");
     const requestNonce: BigNumber = await tokenOwner.getRequestNonce(fromOwnerSigner, fromBridgeAddr);
+    console.log("2 Done");
     
     // Step 1c: Get token URI through FromBridge.
+    console.log("3 Owner getTokenUri");
     const tokenUri: BytesLike = await tokenOwner.getTokenUri(
         fromOwnerSigner,
         fromTokenAddr,
         fromBridgeAddr,
         tokenId
     );
+    console.log("3 Done");
 
     // Step 1d: Ask validator authentication challenge.
 
@@ -88,12 +99,15 @@ async function bridge(
         new BridgeRequestId(bridgeContext, tokenOwner.address, requestNonce),
         tokenId
     );
+    console.log("4 Owner signRequest");
     const ownerSignature: BytesLike = await tokenOwner.signRequest(
         fromOwnerSigner,
         bridgeRequest,
         "0x00");
+    console.log("4 Done");
     
     // Step 3a: Bind listener to commit event at FromBridge.
+    console.log("5 bindListenerToCommitEvent");
     tokenOwner.bindListenerToCommitEvent(
         fromOwnerSigner,
         fromBridgeAddr,
@@ -101,6 +115,7 @@ async function bridge(
         toOwnerSigner,
         validator,
         tokenUri);
+    console.log("5 Done");
         
     // (Step 3b: Send request to validator).
 
@@ -110,7 +125,9 @@ async function bridge(
     // (Step 1: Receive request).
 
     // Step 2: Process request (including committing to FromBridge).
+    console.log("6 Validator processRequest");
     await validator.processRequest(bridgeRequest, ownerSignature);
+    console.log("6 Done");
 
     /// PHASE 3: LISTEN TO COMMIT TRANSACTION -> ASK FOR SECRET -> ACQUIRE NEW TOKEN
     /// SIDE: OWNER (FRONTEND)

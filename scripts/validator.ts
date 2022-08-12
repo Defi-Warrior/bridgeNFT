@@ -41,7 +41,9 @@ export class Validator {
 
     public async processRequest(request: BridgeRequest, ownerSignature: BytesLike) {
         // Check all requirements.
+        console.log("6a Verify request");
         await this._isValid(request, ownerSignature);
+        console.log("6a Done");
 
         const { id: { context, tokenOwner, requestNonce }, tokenId } = request;
 
@@ -49,7 +51,9 @@ export class Validator {
         const fromBridge: IFromBridge = await ethers.getContractAt("IFromBridge", context.fromBridgeAddr, fromValidatorSigner);
  
         // Get token URI.
+        console.log("6b Validator getTokenUri");
         const tokenUri: BytesLike = await fromBridge.getTokenUri(context.fromTokenAddr, tokenId);
+        console.log("6b Done");
 
         // Generate commitment for this request.
         const commitment: BytesLike = this._generateCommitment(request.id);
@@ -67,7 +71,8 @@ export class Validator {
         );
 
         // Send commit transaction.
-        await fromBridge.commit(
+        console.log("6c Validator commit");
+        const commitTx = await fromBridge.commit(
             context.fromTokenAddr,
             {
                 toChainId: context.toChainId,
@@ -85,6 +90,8 @@ export class Validator {
             ownerSignature,
             validatorSignature
         );
+        await commitTx.wait();
+        console.log("6c Done");
     }
 
     /* ********************************************************************************************** */
