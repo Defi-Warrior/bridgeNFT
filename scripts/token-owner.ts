@@ -159,8 +159,7 @@ export class TokenOwner {
                 oldTokenInfo,
                 commitment, secret,
                 requestTimestamp,
-                validatorSignature,
-                { gasLimit: 3000000 }
+                validatorSignature
             );
             const acquireTxReceipt = await acquireTx.wait();
             console.log("11 Done");
@@ -188,16 +187,17 @@ export class TokenOwner {
             requestId.requestNonce,
             null, null, null);
         
-        const events: CommitEvent[] = await fromBridge.queryFilter(filter);
+        if (fromOwnerSigner.provider == undefined) {
+            throw("Signer is not connected to any provider");
+        }
+        const newestBlock: number = await fromOwnerSigner.provider?.getBlockNumber();
+        const events: CommitEvent[] = await fromBridge.queryFilter(filter, newestBlock - 10, newestBlock);
 
         if (events.length == 0) {
             throw("Commit transaction for this request does not exist or has not yet been mined")
         }
         const event: CommitEvent = events[events.length - 1];
 
-        if (fromOwnerSigner.provider == undefined) {
-            throw("Signer is not connected to any provider");
-        }
         if (await fromOwnerSigner.provider.getBlockNumber() < event.blockNumber + this.config.NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION) {
             return false;
         }

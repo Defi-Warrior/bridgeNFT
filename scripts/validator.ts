@@ -185,16 +185,17 @@ export class Validator {
             requestId.requestNonce,
             null, null, null);
         
-        const events: CommitEvent[] = await fromBridge.queryFilter(filter);
+        if (fromValidatorSigner.provider == undefined) {
+            throw("Signer is not connected to any provider");
+        }
+        const newestBlock: number = await fromValidatorSigner.provider?.getBlockNumber();
+        const events: CommitEvent[] = await fromBridge.queryFilter(filter, newestBlock - 10, newestBlock);
 
         if (events.length == 0) {
             throw("Commit transaction for this request does not exist or has not yet been mined")
         }
         const event: CommitEvent = events[events.length - 1];
 
-        if (fromValidatorSigner.provider == undefined) {
-            throw("Signer is not connected to any provider");
-        }
         if (await fromValidatorSigner.provider.getBlockNumber() < event.blockNumber + this._config.NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION) {
             throw("Commit transaction is not finalized yet");
         }
