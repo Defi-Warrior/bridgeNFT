@@ -22,10 +22,14 @@ import { TokenOwner }
     from "./token-owner";
 
 const fromNetwork:      NetworkInfo = NETWORK.BSC_TEST;
-const toNetwork:        NetworkInfo = NETWORK.POLYGON_TEST_MUMBAI;
+const toNetwork:        NetworkInfo = NETWORK.POLYGON_MAIN;
+// Warrior
 const fromTokenAddr:    string      = "0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79";
-const toTokenAddr:      string      = "0xfd4D9e1122792dFF031e94c4378FaC48322dbF3e";
-const tokenId:          BigNumber   = BigNumber.from(0);
+const toTokenAddr:      string      = "0x3821fa78B5c8E13C414D4418a408f65DC2529f64";
+const tokenId:          BigNumber   = BigNumber.from(328);
+// Test NFT
+// const fromTokenAddr:    string      = "0xCF74aDC2c44aCE9b98C435Cc16d98fEb96bea268";
+// const toTokenAddr:      string      = "0x93bf0F1Ede716CC2f72A8c7aEb830F7839f20029";
 
 async function main() {
     const fromBridgeAddr:   string = retrieveFromBridgeAddress(fromNetwork, fromTokenAddr);

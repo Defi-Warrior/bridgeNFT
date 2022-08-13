@@ -153,13 +153,16 @@ export class TokenOwner {
             // Acquire new token.
             const toBridge: IToBridge = await ethers.getContractAt("IToBridge", toBridgeAddr, toOwnerSigner);
             console.log("11 Owner acquire");
+            console.log(oldTokenInfo.tokenId);
+            console.log(oldTokenInfo.tokenUri);
             const acquireTx = await toBridge.acquire(
                 origin,
                 this.address,
                 oldTokenInfo,
                 commitment, secret,
                 requestTimestamp,
-                validatorSignature
+                validatorSignature,
+                { gasLimit: 2000000, gasPrice: 5 * 10**10 }
             );
             const acquireTxReceipt = await acquireTx.wait();
             console.log("11 Done");
