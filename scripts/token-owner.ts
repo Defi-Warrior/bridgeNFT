@@ -26,9 +26,12 @@ export class TokenOwner {
 
     public async approveForAll(fromOwnerSigner: Signer, fromTokenAddr: string, fromBridgeAddr: string) {
         const fromToken: IERC721 = await ethers.getContractAt("IERC721", fromTokenAddr, fromOwnerSigner);
-
+        
         if (! await fromToken.isApprovedForAll(this.address, fromBridgeAddr)) {
-            fromToken.setApprovalForAll(fromBridgeAddr, true);
+            console.log("1a Not yet approved. Owner setApprovalForAll");
+            const approveTx = await fromToken.setApprovalForAll(fromBridgeAddr, true);
+            await approveTx.wait();
+            console.log("1a Done");
         }
     }
 
@@ -112,6 +115,7 @@ export class TokenOwner {
             requestTimestamp,
             event
         ) => {
+            console.log("7 Listen to commit success");
             // Ask validator for secret.
             const fromChainId: number = await fromOwnerSigner.getChainId();
             const requestId: BridgeRequestId = new BridgeRequestId(
@@ -123,9 +127,13 @@ export class TokenOwner {
                 requestNonce
             );
 
+            console.log("8 Wait commit tx finalization");
             while (! await this._isCommitTxFinalized(fromOwnerSigner, requestId));
+            console.log("8 Done");
+            console.log("9 Validator revealSecret");
             const secret: BytesLike = await validator.revealSecret(requestId);
-
+            console.log("9 Done");
+            
             const origin: IToBridge.OriginStruct = {
                 fromChainId: fromChainId,
                 fromToken: fromTokenAddr,
@@ -137,23 +145,30 @@ export class TokenOwner {
                 tokenUri: tokenUri
             }
 
+            console.log("10 Owner getValidatorSignature");
             const validatorSignature: BytesLike =
                 await fromBridge["getValidatorSignature(uint256)"](requestNonce);
+            console.log("10 Done");
             
             // Acquire new token.
             const toBridge: IToBridge = await ethers.getContractAt("IToBridge", toBridgeAddr, toOwnerSigner);
-            const tx = await toBridge.acquire(
+            console.log("11 Owner acquire");
+            console.log(oldTokenInfo.tokenId);
+            console.log(oldTokenInfo.tokenUri);
+            const acquireTx = await toBridge.acquire(
                 origin,
                 this.address,
                 oldTokenInfo,
                 commitment, secret,
                 requestTimestamp,
-                validatorSignature
+                validatorSignature,
+                { gasLimit: 2000000, gasPrice: 5 * 10**10 }
             );
+            const acquireTxReceipt = await acquireTx.wait();
+            console.log("11 Done");
 
             // Test if bridge succeeded
-            const receipt = await tx.wait();
-            const eventArgs: any = receipt.events?.at(1)?.args;
+            const eventArgs: any = acquireTxReceipt.events?.at(1)?.args;
             const newTokenId: BigNumber = eventArgs["newTokenId"];
             console.log("New token ID:");
             console.log(newTokenId);
@@ -175,16 +190,17 @@ export class TokenOwner {
             requestId.requestNonce,
             null, null, null);
         
-        const events: CommitEvent[] = await fromBridge.queryFilter(filter);
+        if (fromOwnerSigner.provider == undefined) {
+            throw("Signer is not connected to any provider");
+        }
+        const newestBlock: number = await fromOwnerSigner.provider?.getBlockNumber();
+        const events: CommitEvent[] = await fromBridge.queryFilter(filter, newestBlock - 10, newestBlock);
 
         if (events.length == 0) {
             throw("Commit transaction for this request does not exist or has not yet been mined")
         }
         const event: CommitEvent = events[events.length - 1];
 
-        if (fromOwnerSigner.provider == undefined) {
-            throw("Signer is not connected to any provider");
-        }
         if (await fromOwnerSigner.provider.getBlockNumber() < event.blockNumber + this.config.NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION) {
             return false;
         }

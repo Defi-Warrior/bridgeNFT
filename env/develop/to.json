@@ -10,6 +10,28 @@
                     "SUPPORT_CLAIM": true,
                     "VALIDATOR_REVOCABILITY": true
                 }
+            },
+            "0x93bf0F1Ede716CC2f72A8c7aEb830F7839f20029": {
+                "NAME": "ToNFT",
+                "TOBRIDGE": {
+                    "ADDRESS": "0xdd819AD80537d7BA86B4208679BB4ff9B1a2C5cE",
+                    "SUPPORT_CLAIM": true,
+                    "VALIDATOR_REVOCABILITY": true
+                }
+            }
+        }
+    },
+    "137": {
+        "CHAIN_NAME": "POLYGON_MAIN",
+        "TOKENS": {
+            "0x3821fa78B5c8E13C414D4418a408f65DC2529f64": {
+                "NAME": "Defi Warrior NFT",
+                "NFT_MANAGER": "0x532706C545Bb1c38214F143a8169D826A5331C52",
+                "TOBRIDGE": {
+                    "ADDRESS": "0x9B7d5eb78f7BfeE41299049292385ED6C5021E59",
+                    "SUPPORT_CLAIM": true,
+                    "VALIDATOR_REVOCABILITY": true
+                }
             }
         }
     },
