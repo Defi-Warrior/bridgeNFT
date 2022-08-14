@@ -69,11 +69,11 @@ contract DefiWarriorToBridge is AbstractClaimToBridge, AbstractRevocableToBridge
      */
     function _mint(address to, bytes memory tokenUri) internal override returns(uint256) {
         uint32[30] memory warriorAttributes;
-        uint32[20][6] memory bodypartAttributes;
+        uint32[20][6] memory bodyPartAttributes;
         
-        (warriorAttributes, bodypartAttributes) = WarriorEncoding.decode(tokenUri);
+        (warriorAttributes, bodyPartAttributes) = WarriorEncoding.decode(tokenUri);
 
-        uint256 newTokenId = INFTManager(_nftManager).mint(to, warriorAttributes, bodypartAttributes);
+        uint256 newTokenId = INFTManager(_nftManager).mint(to, warriorAttributes, bodyPartAttributes);
 
         return newTokenId;
     }
