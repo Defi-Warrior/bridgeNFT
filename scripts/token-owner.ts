@@ -12,6 +12,7 @@ import OwnerConfig from "./types/config/owner-config";
 import { OwnerSignature } from "./utils/crypto/owner-signature";
 import { Validator } from "./validator";
 import { BridgeContext, BridgeRequest, BridgeRequestId } from "./types/dto/bridge-request";
+import { NetworkInfo } from "./types/dto/network-info";
 
 export class TokenOwner {
     public readonly address: string;
@@ -24,23 +25,46 @@ export class TokenOwner {
 
     /* ********************************************************************************************** */
 
-    public async approveForAll(fromOwnerSigner: Signer, fromTokenAddr: string, fromBridgeAddr: string) {
+    public async approveForAll(
+        fromOwnerSigner: Signer,
+        fromTokenAddr: string,
+        fromBridgeAddr: string,
+
+        fromNetwork: NetworkInfo) {
         const fromToken: IERC721 = await ethers.getContractAt("IERC721", fromTokenAddr, fromOwnerSigner);
         
         if (! await fromToken.isApprovedForAll(this.address, fromBridgeAddr)) {
             console.log("1a Not yet approved. Owner setApprovalForAll");
-            const approveTx = await fromToken.setApprovalForAll(fromBridgeAddr, true);
+            const approveTx = await fromToken.setApprovalForAll(
+                fromBridgeAddr,
+                true,
+                {
+                    gasLimit: 100000,
+                    gasPrice: fromNetwork.GAS_PRICE,
+                });
             await approveTx.wait();
             console.log("1a Done");
         }
     }
 
-    public async approve(fromOwnerSigner: Signer, fromTokenAddr: string, fromBridgeAddr: string, tokenId: BigNumber) {
+    public async approve(
+        fromOwnerSigner: Signer,
+        fromTokenAddr: string,
+        fromBridgeAddr: string,
+        tokenId: BigNumber,
+
+        fromNetwork: NetworkInfo) {
         const fromToken: IERC721 = await ethers.getContractAt("IERC721", fromTokenAddr, fromOwnerSigner);
 
         if (!  (await fromToken.isApprovedForAll(this.address, fromBridgeAddr) ||
                 await fromToken.getApproved(tokenId) === fromBridgeAddr) ) {
-            fromToken.approve(fromBridgeAddr, tokenId);
+            fromToken.approve(
+                fromBridgeAddr,
+                tokenId,
+                {
+                    gasLimit: 100000,
+                    gasPrice: fromNetwork.GAS_PRICE
+                });
         }
     }
 
@@ -92,6 +116,7 @@ export class TokenOwner {
         fromBridgeAddr: string,
         requestNonce: BigNumber,
         
+        toNetwork: NetworkInfo,
         toOwnerSigner: Signer,
         validator: Validator,
         tokenUri: BytesLike
@@ -153,8 +178,6 @@ export class TokenOwner {
             // Acquire new token.
             const toBridge: IToBridge = await ethers.getContractAt("IToBridge", toBridgeAddr, toOwnerSigner);
             console.log("11 Owner acquire");
-            console.log(oldTokenInfo.tokenId);
-            console.log(oldTokenInfo.tokenUri);
             const acquireTx = await toBridge.acquire(
                 origin,
                 this.address,
@@ -162,7 +185,10 @@ export class TokenOwner {
                 commitment, secret,
                 requestTimestamp,
                 validatorSignature,
-                { gasLimit: 2000000, gasPrice: 5 * 10**10 }
+                {
+                    gasLimit: 2000000,
+                    gasPrice: toNetwork.GAS_PRICE
+                }
             );
             const acquireTxReceipt = await acquireTx.wait();
             console.log("11 Done");

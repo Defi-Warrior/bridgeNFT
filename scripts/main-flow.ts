@@ -22,11 +22,11 @@ import { TokenOwner }
     from "./token-owner";
 
 const fromNetwork:      NetworkInfo = NETWORK.BSC_TEST;
-const toNetwork:        NetworkInfo = NETWORK.POLYGON_MAIN;
+const toNetwork:        NetworkInfo = NETWORK.POLYGON_TEST_MUMBAI;
 // Warrior
 const fromTokenAddr:    string      = "0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79";
-const toTokenAddr:      string      = "0x3821fa78B5c8E13C414D4418a408f65DC2529f64";
-const tokenId:          BigNumber   = BigNumber.from(328);
+const toTokenAddr:      string      = "0xfd4D9e1122792dFF031e94c4378FaC48322dbF3e";
+const tokenId:          BigNumber   = BigNumber.from(0);
 // Test NFT
 // const fromTokenAddr:    string      = "0xCF74aDC2c44aCE9b98C435Cc16d98fEb96bea268";
 // const toTokenAddr:      string      = "0x93bf0F1Ede716CC2f72A8c7aEb830F7839f20029";
@@ -75,7 +75,7 @@ async function bridge(
 
     // Step 1a: Approve FromBridge for all tokens.
     console.log("1 Approve FromBridge");
-    await tokenOwner.approveForAll(fromOwnerSigner, fromTokenAddr, fromBridgeAddr);
+    await tokenOwner.approveForAll(fromOwnerSigner, fromTokenAddr, fromBridgeAddr, fromNetwork);
     console.log("1 Done");
     // Could alternatively approve for the requested token only by calling:
     // tokenOwner.approve(fromToken, fromBridge, tokenId);
@@ -116,6 +116,8 @@ async function bridge(
         fromOwnerSigner,
         fromBridgeAddr,
         requestNonce,
+
+        toNetwork,
         toOwnerSigner,
         validator,
         tokenUri);

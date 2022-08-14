@@ -18,7 +18,7 @@ export const NETWORK = {
         NAME: "BSC_MAIN",
         CHAIN_ID: 56,
         RPC_URL: "https://bsc-dataseed.binance.org",
-        GAS_PRICE: BigNumber.from("10" + "000000000") // 10 gwei
+        GAS_PRICE: BigNumber.from("5" + "000000000") // 5 gwei
     },
     BSC_TEST: {
         NAME: "BSC_TEST",
@@ -30,7 +30,7 @@ export const NETWORK = {
         NAME: "POLYGON_MAIN",
         CHAIN_ID: 137,
         RPC_URL: "https://polygon-rpc.com",
-        GAS_PRICE: BigNumber.from("50" + "000000000") // 50 gwei
+        GAS_PRICE: BigNumber.from("40" + "000000000") // 40 gwei
     },
     POLYGON_TEST_MUMBAI: {
         NAME: "POLYGON_TEST_MUMBAI",
