@@ -8,18 +8,18 @@ import { storeDynamicHoldingFromBridge } from "../../utils/data/store-deployed-b
 import { getSigner, Role } from "../../utils/get-signer";
 import { deploy as deployDynamicHoldingRevocableFromBridge } from "../function/dynamic-holding-revocable-frombridge";
 
-const network: NetworkInfo = NETWORK.LOCALHOST_8545;
+const fromNetwork: NetworkInfo = NETWORK.LOCALHOST_8545;
 
 (async () => {
     // Deploy.
-    const deployer: Signer = getSigner(Role.DEPLOYER, network);
-    const validatorAddr: string = await (getSigner(Role.VALIDATOR, network)).getAddress();
+    const deployer: Signer = getSigner(Role.DEPLOYER, fromNetwork);
+    const validatorAddr: string = await (getSigner(Role.VALIDATOR, fromNetwork)).getAddress();
     
     const dynamicHoldingRevocableFromBridge: DynamicHoldingRevocableFromBridge =
-        await deployDynamicHoldingRevocableFromBridge(deployer, validatorAddr);
+        await deployDynamicHoldingRevocableFromBridge(deployer, validatorAddr, fromNetwork);
 
     // Store.
-    storeDynamicHoldingFromBridge(network, dynamicHoldingRevocableFromBridge.address, true);
+    storeDynamicHoldingFromBridge(fromNetwork, dynamicHoldingRevocableFromBridge.address, true);
 
     // Log address.
     console.log("Deployed DynamicHoldingRevocableFromBridge contract's address:");

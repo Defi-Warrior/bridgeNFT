@@ -15,6 +15,7 @@ import { OwnerSignature } from "./utils/crypto/owner-signature";
 import { ValidatorSignature } from "./utils/crypto/validator-signature";
 import { getAddress, getSigner, Role } from "./utils/get-signer";
 import { getNetworkInfo } from "../env/network";
+import { NetworkInfo } from "./types/dto/network-info";
 
 export class Validator {
     public readonly address: string;
@@ -72,6 +73,7 @@ export class Validator {
 
         // Send commit transaction.
         console.log("6c Validator commit");
+        const fromNetwork: NetworkInfo = getNetworkInfo(context.fromChainId);
         const commitTx = await fromBridge.commit(
             context.fromTokenAddr,
             {
@@ -88,7 +90,11 @@ export class Validator {
             requestTimestamp,
             "0x00",
             ownerSignature,
-            validatorSignature
+            validatorSignature,
+            {
+                gasLimit: 1000000,
+                gasPrice: fromNetwork.GAS_PRICE,
+            }
         );
         await commitTx.wait();
         console.log("6c Done");

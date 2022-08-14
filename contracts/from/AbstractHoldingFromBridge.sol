@@ -25,13 +25,14 @@ abstract contract AbstractHoldingFromBridge is AbstractFromBridge, IERC721Receiv
 
     /**
      * @dev Implement IERC721Receiver.
+     * Child contracts MAY override to add more logic if needed.
      */
     function onERC721Received(
         address operator,
         address from,
         uint256 tokenId,
         bytes calldata data
-    ) external override returns(bytes4) {
+    ) external virtual override returns(bytes4) {
         return IERC721Receiver.onERC721Received.selector;
     }
 }

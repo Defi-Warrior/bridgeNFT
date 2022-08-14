@@ -49,14 +49,14 @@ contract DefiWarriorFromBridge is StaticHoldingRevocableFromBridge {
         uint32[30] memory warriorAttributes = IWarrior(fromToken).getAttributeAt(tokenId);
 
         // Get body parts' attributes.
-        uint32[6] memory partIds = IWarrior(fromToken).getPartIds(tokenId);
-        uint32[20][6] memory bodypartAttributes;
+        uint256[6] memory partIds = IWarrior(fromToken).getBodyPartAt(tokenId);
+        uint32[20][6] memory bodyPartAttributes;
         for (uint256 i = 0; i < 6; i++){
-            bodypartAttributes[i] = IBodyPart(_fromBodyPart).getAttributeAt(partIds[i]);
+            bodyPartAttributes[i] = IBodyPart(_fromBodyPart).getAttributeAt(partIds[i]);
         }
 
         // Encode to token URI as bytes.
-        bytes memory tokenUri = WarriorEncoding.encode(warriorAttributes, bodypartAttributes);
+        bytes memory tokenUri = WarriorEncoding.encode(warriorAttributes, bodyPartAttributes);
         
         return tokenUri;
     }

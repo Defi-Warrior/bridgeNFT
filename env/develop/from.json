@@ -1,60 +1,60 @@
 {
-    "97": {
-        "CHAIN_NAME": "BSC_TEST",
-        "TOKENS": {
-            "0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79": {
-                "NAME": "Defi Warrior NFT",
-                "DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY": false,
-                "DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY": false,
-                "STATIC_FROMBRIDGE": {
-                    "ADDRESS": "0x048952B262991C6Ff8F88d3f599506a113FE9490",
-                    "VALIDATOR_REVOCABILITY": true
-                },
-                "BODYPART": "0x363170404fe6C2EF7dCe2cDC293823b8df7994d8"
-            },
-            "0xCF74aDC2c44aCE9b98C435Cc16d98fEb96bea268": {
-                "NAME": "FromNFT",
-                "DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY": true,
-                "DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY": true
-            }
-        },
-        "DYNAMIC_BURNING_FROMBRIDGE": {
-            "ADDRESS": "0x9B7d5eb78f7BfeE41299049292385ED6C5021E59",
-            "VALIDATOR_REVOCABILITY": true
-        }
-    },
-    "137": {
-        "CHAIN_NAME": "POLYGON_MAIN",
-        "TOKENS": {
-            "0x3821fa78B5c8E13C414D4418a408f65DC2529f64": {
-                "NAME": "Defi Warrior NFT",
-                "DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY": false,
-                "DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY": false,
-                "BODYPART": "0xf1f33E014d31248d86A840A3F46793334748ce7A",
-                "STATIC_FROMBRIDGE": {
-                    "ADDRESS": "",
-                    "VALIDATOR_REVOCABILITY": true
-                }
-            }
-        }
-    },
-    "31337": {
-        "CHAIN_NAME": "LOCALHOST_8545",
-        "TOKENS": {}
-    },
-    "80001": {
-        "CHAIN_NAME": "POLYGON_TEST_MUMBAI",
-        "TOKENS": {
-            "0xfd4D9e1122792dFF031e94c4378FaC48322dbF3e": {
-                "NAME": "Defi Warrior NFT",
-                "DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY": false,
-                "DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY": false,
-                "BODYPART": "0x30A03fA3ED43E2F256BefC0f4343096bB6c339ef",
-                "STATIC_FROMBRIDGE": {
-                    "ADDRESS": "0x389C4964b9e8C6d489184f8c59E78060C7b172e8",
-                    "VALIDATOR_REVOCABILITY": true
-                }
-            }
-        }
-    }
+	"97": {
+		"CHAIN_NAME": "BSC_TEST",
+		"TOKENS": {
+			"0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79": {
+				"NAME": "Defi Warrior NFT",
+				"DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY": false,
+				"DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY": false,
+				"STATIC_FROMBRIDGE": {
+					"ADDRESS": "0xAB989421f0C00Ef72bFB86466DF87a68c21a8d81",
+					"VALIDATOR_REVOCABILITY": true
+				},
+				"BODYPART": "0x363170404fe6C2EF7dCe2cDC293823b8df7994d8"
+			},
+			"0xCF74aDC2c44aCE9b98C435Cc16d98fEb96bea268": {
+				"NAME": "FromNFT",
+				"DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY": true,
+				"DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY": true
+			}
+		},
+		"DYNAMIC_BURNING_FROMBRIDGE": {
+			"ADDRESS": "0x9B7d5eb78f7BfeE41299049292385ED6C5021E59",
+			"VALIDATOR_REVOCABILITY": true
+		}
+	},
+	"137": {
+		"CHAIN_NAME": "POLYGON_MAIN",
+		"TOKENS": {
+			"0x3821fa78B5c8E13C414D4418a408f65DC2529f64": {
+				"NAME": "Defi Warrior NFT",
+				"DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY": false,
+				"DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY": false,
+				"BODYPART": "0xf1f33E014d31248d86A840A3F46793334748ce7A",
+				"STATIC_FROMBRIDGE": {
+					"ADDRESS": "0x2E2CAC3b91c082c22ac124e12895b23aD1A98f28",
+					"VALIDATOR_REVOCABILITY": true
+				}
+			}
+		}
+	},
+	"31337": {
+		"CHAIN_NAME": "LOCALHOST_8545",
+		"TOKENS": {}
+	},
+	"80001": {
+		"CHAIN_NAME": "POLYGON_TEST_MUMBAI",
+		"TOKENS": {
+			"0xfd4D9e1122792dFF031e94c4378FaC48322dbF3e": {
+				"NAME": "Defi Warrior NFT",
+				"DYNAMIC_BURNING_FROMBRIDGE_COMPATIBILITY": false,
+				"DYNAMIC_HOLDING_FROMBRIDGE_COMPATIBILITY": false,
+				"BODYPART": "0x30A03fA3ED43E2F256BefC0f4343096bB6c339ef",
+				"STATIC_FROMBRIDGE": {
+					"ADDRESS": "0x1100D3613c7F35d045e8AA500044d1C7693AF254",
+					"VALIDATOR_REVOCABILITY": true
+				}
+			}
+		}
+	}
 }

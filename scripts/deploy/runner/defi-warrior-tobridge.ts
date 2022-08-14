@@ -11,15 +11,15 @@ import { storeToBridge } from "../../utils/data/store-deployed-bridge";
 import { getSigner, Role } from "../../utils/get-signer";
 import { deploy as deployDefiWarriorToBridge } from "../function/defi-warrior-tobridge";
 
-const network: NetworkInfo = NETWORK.POLYGON_TEST_MUMBAI;
+const toNetwork: NetworkInfo = NETWORK.POLYGON_MAIN;
 const toTokenAddr: string = "";
 
 (async () => {
     // Deploy.
-    const deployer:         Signer = getSigner(Role.DEPLOYER, network);
-    const validatorAddr:    string = await (getSigner(Role.VALIDATOR, network)).getAddress();
-    const denierAddr:       string = await (getSigner(Role.DENIER, network)).getAddress();
-    const toTokenInfo: ToTokenInfo = retrieveTokenInfoInToData(network, toTokenAddr);
+    const deployer:         Signer = getSigner(Role.DEPLOYER, toNetwork);
+    const validatorAddr:    string = await (getSigner(Role.VALIDATOR, toNetwork)).getAddress();
+    const denierAddr:       string = await (getSigner(Role.DENIER, toNetwork)).getAddress();
+    const toTokenInfo: ToTokenInfo = retrieveTokenInfoInToData(toNetwork, toTokenAddr);
     const nftManagerAddr:   string = toTokenInfo["NFT_MANAGER"];
 
     const defiWarriorToBridge: DefiWarriorToBridge = await deployDefiWarriorToBridge(
@@ -28,10 +28,11 @@ const toTokenAddr: string = "";
         validatorAddr,
         denierAddr,
         deployConfig,
-        nftManagerAddr);
+        nftManagerAddr,
+        toNetwork);
 
     // Store.
-    storeToBridge(network, toTokenAddr, defiWarriorToBridge.address, true, true);
+    storeToBridge(toNetwork, toTokenAddr, defiWarriorToBridge.address, true, true);
 
     // Log address.
     console.log("Deployed DefiWarriorToBridge contract's address:");
