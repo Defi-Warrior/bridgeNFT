@@ -8,18 +8,18 @@ import { storeDynamicBurningFromBridge } from "../../utils/data/store-deployed-b
 import { getSigner, Role } from "../../utils/get-signer";
 import { deploy as deployDynamicBurningRevocableFromBridge } from "../function/dynamic-burning-revocable-frombridge";
 
-const network: NetworkInfo = NETWORK.LOCALHOST_8545;
+const fromNetwork: NetworkInfo = NETWORK.LOCALHOST_8545;
 
 (async () => {
     // Deploy.
-    const deployer: Signer = getSigner(Role.DEPLOYER, network);
-    const validatorAddr: string = await (getSigner(Role.VALIDATOR, network)).getAddress();
+    const deployer: Signer = getSigner(Role.DEPLOYER, fromNetwork);
+    const validatorAddr: string = await (getSigner(Role.VALIDATOR, fromNetwork)).getAddress();
     
     const dynamicBurningRevocableFromBridge: DynamicBurningRevocableFromBridge =
-        await deployDynamicBurningRevocableFromBridge(deployer, validatorAddr);
+        await deployDynamicBurningRevocableFromBridge(deployer, validatorAddr, fromNetwork);
 
     // Store.
-    storeDynamicBurningFromBridge(network, dynamicBurningRevocableFromBridge.address, true);
+    storeDynamicBurningFromBridge(fromNetwork, dynamicBurningRevocableFromBridge.address, true);
 
     // Log address.
     console.log("Deployed DynamicBurningRevocableFromBridge contract's address:");

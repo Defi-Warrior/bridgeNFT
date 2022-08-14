@@ -8,15 +8,15 @@ import { getSigner, Role } from "../../utils/get-signer";
 import { storeTokenInToData } from "../../utils/data/store-deployed-token";
 import { deploy as deployToNFT } from "../function/_tonft";
 
-const network: NetworkInfo = NETWORK.LOCALHOST_8546;
+const toNetwork: NetworkInfo = NETWORK.LOCALHOST_8546;
 
 (async () => {
     // Deploy.
-    const deployer: Signer = getSigner(Role.DEPLOYER, network);
-    const toToken: ToNFT = await deployToNFT(deployer);
+    const deployer: Signer = getSigner(Role.DEPLOYER, toNetwork);
+    const toToken: ToNFT = await deployToNFT(deployer, toNetwork);
     
     // Store.
-    storeTokenInToData(network, toToken.address, {
+    storeTokenInToData(toNetwork, toToken.address, {
         NAME: await toToken.name()
     });
 

@@ -17,21 +17,22 @@ export default async function deployAll(fromNetwork: NetworkInfo, toNetwork: Net
     const fromDeployer: Signer = getSigner(Role.DEPLOYER, fromNetwork);
     const validatorAddr: string = await (getSigner(Role.VALIDATOR, fromNetwork)).getAddress();
     
-    const fromToken: FromNFT = await deployFromNFT(fromDeployer);
+    const fromToken: FromNFT = await deployFromNFT(fromDeployer, fromNetwork);
     const dynamicBurningRevocableFromBridge: DynamicBurningRevocableFromBridge =
-        await deployDynamicBurningRevocableFromBridge(fromDeployer, validatorAddr);
+        await deployDynamicBurningRevocableFromBridge(fromDeployer, validatorAddr, fromNetwork);
     
     // Deploy "to" NFT and bridge.
     const toDeployer: Signer = getSigner(Role.DEPLOYER, toNetwork);
     const denierAddr: string = await (getSigner(Role.DENIER, toNetwork)).getAddress();
     
-    const toToken: ToNFT = await deployToNFT(toDeployer);
+    const toToken: ToNFT = await deployToNFT(toDeployer, toNetwork);
     const toNftToBridge: ToNftToBridge = await deployToNftToBridge(
         toDeployer,
         toToken.address,
         validatorAddr,
         denierAddr,
-        deployConfig);
+        deployConfig,
+        toNetwork);
 
     // Set allow mint to bridge.
     await toToken.connect(toDeployer).setToBridge(toNftToBridge.address);

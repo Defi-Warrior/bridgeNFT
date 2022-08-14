@@ -8,19 +8,19 @@ import { storeStaticFromBridge } from "../../utils/data/store-deployed-bridge";
 import { getSigner, Role } from "../../utils/get-signer";
 import { deploy as deployFromNftFromBridge } from "../function/_fromnft-frombridge";
 
-const network: NetworkInfo = NETWORK.LOCALHOST_8545;
+const fromNetwork: NetworkInfo = NETWORK.LOCALHOST_8545;
 const fromTokenAddr: string = "";
 
 (async () => {
     // Deploy.
-    const deployer: Signer = getSigner(Role.DEPLOYER, network);
-    const validatorAddr: string = await (getSigner(Role.VALIDATOR, network)).getAddress();
+    const deployer: Signer = getSigner(Role.DEPLOYER, fromNetwork);
+    const validatorAddr: string = await (getSigner(Role.VALIDATOR, fromNetwork)).getAddress();
 
     const fromNftFromBridge: StaticBurningRevocableFromBridge =
-        await deployFromNftFromBridge(deployer, validatorAddr, fromTokenAddr);
+        await deployFromNftFromBridge(deployer, validatorAddr, fromTokenAddr, fromNetwork);
     
     // Store.
-    storeStaticFromBridge(network, fromTokenAddr, fromNftFromBridge.address, true);
+    storeStaticFromBridge(fromNetwork, fromTokenAddr, fromNftFromBridge.address, true);
 
     // Log address.
     console.log("Deployed FromNFT's StaticFromBridge contract's address:");

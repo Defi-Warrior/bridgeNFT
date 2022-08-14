@@ -3,11 +3,13 @@ import { ethers } from "hardhat";
 
 import { ToNFT, ToNFT__factory } from "../../../typechain-types";
 
-export async function deploy(deployer: Signer):
+import { NetworkInfo } from "../../types/dto/network-info";
+
+export async function deploy(deployer: Signer, toNetwork: NetworkInfo):
         Promise<ToNFT> {
 
     const toNFTFactory: ToNFT__factory = await ethers.getContractFactory("ToNFT", deployer);
-    const toToken: ToNFT = await toNFTFactory.deploy();
+    const toToken: ToNFT = await toNFTFactory.deploy({ gasPrice: toNetwork.GAS_PRICE });
     await toToken.deployed();
 
     return toToken;
