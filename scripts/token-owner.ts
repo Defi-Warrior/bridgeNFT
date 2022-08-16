@@ -1,5 +1,5 @@
 // Libraries
-import { BigNumber, BytesLike, Signer } from "ethers";
+import { BigNumber, BytesLike, Signer, utils } from "ethers";
 import { ethers } from "hardhat";
 
 // Typechain
@@ -193,8 +193,23 @@ export class TokenOwner {
             const acquireTxReceipt = await acquireTx.wait();
             console.log("11 Done");
 
-            // Test if bridge succeeded
-            const eventArgs: any = acquireTxReceipt.events?.at(1)?.args;
+            // Test if bridge succeeded.
+            const logs = acquireTxReceipt.events;
+            if (logs == undefined) {
+                throw("No event emitted");
+            }
+
+            // Search for Acquire event.
+            let logIndex: number = 0;;
+            for (let i in logs) {
+                if (logs[i].address == toBridgeAddr &&
+                    logs[i].topics[0] == utils.id("Acquire(uint256,address,address,address,uint256,bytes32,uint256)")) {
+                    logIndex = parseInt(i);
+                    break;
+                }
+            }
+
+            const eventArgs: any = logs[logIndex].args;
             const newTokenId: BigNumber = eventArgs["newTokenId"];
             console.log("New token ID:");
             console.log(newTokenId);

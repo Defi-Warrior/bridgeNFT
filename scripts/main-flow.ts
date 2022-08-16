@@ -22,10 +22,21 @@ import { TokenOwner }
     from "./token-owner";
 
 const fromNetwork:      NetworkInfo = NETWORK.BSC_TEST;
-const toNetwork:        NetworkInfo = NETWORK.POLYGON_TEST_MUMBAI;
+// const fromNetwork:      NetworkInfo = NETWORK.POLYGON_TEST_MUMBAI;
+// const fromNetwork:      NetworkInfo = NETWORK.POLYGON_MAIN;
+
+const toNetwork:        NetworkInfo = NETWORK.BSC_TEST;
+// const toNetwork:        NetworkInfo = NETWORK.POLYGON_TEST_MUMBAI;
+// const toNetwork:        NetworkInfo = NETWORK.POLYGON_MAIN;
 // Warrior
 const fromTokenAddr:    string      = "0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79";
-const toTokenAddr:      string      = "0xfd4D9e1122792dFF031e94c4378FaC48322dbF3e";
+// const fromTokenAddr:    string      = "0xfd4D9e1122792dFF031e94c4378FaC48322dbF3e";
+// const fromTokenAddr:    string      = "0x3821fa78B5c8E13C414D4418a408f65DC2529f64";
+
+const toTokenAddr:      string      = "0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79";
+// const toTokenAddr:      string      = "0xfd4D9e1122792dFF031e94c4378FaC48322dbF3e";
+// const toTokenAddr:      string      = "0x3821fa78B5c8E13C414D4418a408f65DC2529f64";
+
 const tokenId:          BigNumber   = BigNumber.from(0);
 // Test NFT
 // const fromTokenAddr:    string      = "0xCF74aDC2c44aCE9b98C435Cc16d98fEb96bea268";
@@ -38,9 +49,7 @@ async function main() {
     const validator: Validator = await Validator.instantiate(validatorConfig);
 
     const fromOwnerSigner: Signer = await getTokenOwnerSigner(fromNetwork);
-    // console.log(await fromOwnerSigner.getBalance());
     const toOwnerSigner:   Signer = await getTokenOwnerSigner(toNetwork);
-    // console.log(await toOwnerSigner.getBalance());
     const tokenOwner: TokenOwner = new TokenOwner(await fromOwnerSigner.getAddress(), ownerConfig);
 
     // Mint token on FromNFT for test
