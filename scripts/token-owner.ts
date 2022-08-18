@@ -234,15 +234,16 @@ export class TokenOwner {
         if (fromOwnerSigner.provider == undefined) {
             throw("Signer is not connected to any provider");
         }
-        const newestBlock: number = await fromOwnerSigner.provider?.getBlockNumber();
-        const events: CommitEvent[] = await fromBridge.queryFilter(filter, newestBlock - 10, newestBlock);
+        const newestBlock: number = await fromOwnerSigner.provider.getBlockNumber();
+        const events: CommitEvent[] = await fromBridge.queryFilter(filter, newestBlock - 20, newestBlock);
 
         if (events.length == 0) {
             throw("Commit transaction for this request does not exist or has not yet been mined")
         }
         const event: CommitEvent = events[events.length - 1];
 
-        if (await fromOwnerSigner.provider.getBlockNumber() < event.blockNumber + this.config.NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION) {
+        if (newestBlock < event.blockNumber + this.config.NUMBER_OF_BLOCK_CONFIRMATIONS) {
+            console.log(`Mined block: ${event.blockNumber} - Newest block: ${newestBlock}`);
             return false;
         }
         return true;
