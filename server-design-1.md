@@ -8,40 +8,54 @@ HASH := Keccak256
     HASH(message) -> digest
 PRF := HMAC-SHA256
     PRF(key, message) -> pseudoRandomString
+
+bridgeContext := {
+    fromChainId, fromTokenAddr, fromBridgeAddr,
+    toChainId, toTokenAddr, toBridgeAddr
+}
+bridgeRequestId := { bridgeContext, tokenOwner, requestNonce }
+bridgeRequest   := { bridgeRequestId, tokenId }
 ```
 
 #### STORED GLOBAL VALUE
 ```
-commitKey
+secretGenKey
 ```
 
 #### FUNCTION
 ###### SETUP ()
 ```
-commitKey <- random()
+secretGenKey <- random()
 ```
 
-###### COMMIT (ownerAddr, tokenId, requestNonce)
+###### VERIFY (bridgeRequest, signature)
 ```
-secret <- PRF(commitKey, ownerAddr || tokenId || requestNonce)
+if not SIG_VERIFY(tokenOwner, bridgeContext || requestNonce || tokenId, signature) then
+    abort
+```
+
+###### COMMIT (bridgeRequest, signature)
+```
+VERIFY(bridgeRequest, signature)
+secret <- PRF(secretGenKey, bridgeRequestId)
 commitment <- HASH(secret)
 return commitment
 ```
 
-###### REVEAL (ownerAddr, tokenId, requestNonce)
+###### REVEAL (bridgeRequestId)
 ```
-secret <- PRF(commitKey, ownerAddr || tokenId || requestNonce)
+secret <- PRF(secretGenKey, bridgeRequestId)
 return secret
 ```
 
 #### DATABASE (not needed)
-| ownerAddr | tokenId | requestNonce | usedKey   | secret                 |
-| --------- | ------- | ------------ | --------- | ---------------------- |
-| 0x1234... | 0       | 0            | commitKey | (deterministic secret) |
-| 0x1234... | 0       | 1            | commitKey | (deterministic secret) |
-| 0x1234... | 1       | 0            | commitKey | (deterministic secret) |
-| 0x1234... | 1       | 1            | commitKey | (deterministic secret) |
-| 0x1234... | 1       | 2            | commitKey | (deterministic secret) |
-| 0x1234... | 2       | 0            | commitKey | (deterministic secret) |
-| 0x5678... | 0       | 0            | commitKey | (deterministic secret) |
-| ...       |         |              |           |                        |
+| bridgeRequestId | usedKey      | secret                 |
+| --------------- | ------------ | ---------------------- |
+| ...             | secretGenKey | (deterministic secret) |
+|                 | secretGenKey | (deterministic secret) |
+|                 | secretGenKey | (deterministic secret) |
+|                 | secretGenKey | (deterministic secret) |
+|                 | secretGenKey | (deterministic secret) |
+|                 | secretGenKey | (deterministic secret) |
+|                 | secretGenKey | (deterministic secret) |
+|                 |              |                        |

@@ -20,63 +20,70 @@ MAC := HMAC-SHA256
 SIG := ECDSA
     SIG_SIGN(privateKey, message) -> signature
     SIG_VERIFY(publicKey, message, signature) -> boolean
+
+bridgeContext := {
+    fromChainId, fromTokenAddr, fromBridgeAddr,
+    toChainId, toTokenAddr, toBridgeAddr
+}
+bridgeRequestId := { bridgeContext, tokenOwner, requestNonce }
+bridgeRequest   := { bridgeRequestId, tokenId, challenge }
 ```
 
 #### STORED GLOBAL VALUE
 ```
 n
-commitKey[]
+secretGenKey[]
 indexEncKey
 challengeMacKey
 challengeLifetime
 ```
 
 #### FUNCTION
-###### SETUP (init_commitKey, init_indexEncKey, init_challengeMacKey, init_challengeLifetime)
+###### SETUP (init_secretGenKey, init_indexEncKey, init_challengeMacKey, init_challengeLifetime)
 ```
 n <- 0
-commitKey[n] <- init_commitKey
+secretGenKey[n] <- init_secretGenKey
 indexEncKey <- init_indexEncKey
 challengeMacKey <- init_challengeMacKey
 challengeLifetime <- init_challengeLifetime
 ```
 
-###### COMMIT_KEY_UPDATE (new_commitKey)
+###### SECRET_GEN_KEY_UPDATE (new_secretGenKey)
 ```
 n <- n + 1
-commitKey[n] <- new_commitKey
+secretGenKey[n] <- new_secretGenKey
 ```
 
-###### AUTHENTICATE_CHALLENGE ()
+###### CHALLENGE ()
 ```
-timestamp <- now()
+challengeGenTimestamp <- now()
 challenge <- random()
-tag <- MAC_SIGN(challengeMacKey, timestamp || challenge)
-return (timestamp, challenge, tag)
+tag <- MAC_SIGN(challengeMacKey, challengeGenTimestamp || challenge)
+return (challengeGenTimestamp, challenge, tag)
 ```
 
-###### AUTHENTICATE_VERIFY (publicKey, tokenId, requestNonce, timestamp, challenge, tag, signature)
+###### VERIFY (bridgeRequest, challengeGenTimestamp, tag, signature)
 ```
-if not (timestamp < now() < timestamp + challengeLifetime) then
+if not (challengeGenTimestamp < now() < challengeGenTimestamp + challengeLifetime) then
     abort
-if not MAC_VERIFY(challengeMacKey, timestamp || challenge, tag) then
+if not MAC_VERIFY(challengeMacKey, challengeGenTimestamp || challenge, tag) then
     abort
-if not SIG_VERIFY(publicKey, tokenId || requestNonce || challenge, signature) then
+if not SIG_VERIFY(tokenOwner, bridgeContext || requestNonce || tokenId || challenge, signature) then
     abort
 ```
 
-###### COMMIT (ownerAddr, tokenId, requestNonce, timestamp, challenge, tag, signature)
+###### COMMIT (bridgeRequest, challengeGenTimestamp, tag, signature)
 ```
-AUTHENTICATE_VERIFY(ownerAddr, tokenId, requestNonce, timestamp, challenge, tag, signature)
-secret <- PRF(commitKey[n], bridgeContext || ownerAddr || requestNonce)
+VERIFY(bridgeRequest, challengeGenTimestamp, tag, signature)
+secret <- PRF(secretGenKey[n], bridgeRequestId)
 commitment <- HASH(secret)
-keyIndicator <- AEAD_ENC(indexEncKey, n, ownerAddr || tokenId || requestNonce)
+keyIndicator <- AEAD_ENC(indexEncKey, n, bridgeRequestId)
 return (commitment, keyIndicator)
 ```
 
-###### REVEAL (ownerAddr, tokenId, requestNonce, keyIndicator)
+###### REVEAL (bridgeRequestId, keyIndicator)
 ```
-i <- AEAD_DEC(indexEncKey, keyIndicator, ownerAddr || tokenId || requestNonce)
-secret <- PRF(commitKey[i], bridgeContext || ownerAddr || requestNonce)
+i <- AEAD_DEC(indexEncKey, keyIndicator, bridgeRequestId)
+secret <- PRF(secretGenKey[i], bridgeRequestId)
 return secret
 ```
