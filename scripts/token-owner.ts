@@ -3,15 +3,14 @@ import { BigNumber, BytesLike, Signer, utils } from "ethers";
 import { ethers } from "hardhat";
 
 // Typechain
-import { IERC721, IFromBridge, IToBridge } from "../typechain-types";
+import { IERC721, IFromBridge } from "../typechain-types";
 import { TypedEventFilter, TypedListener } from "../typechain-types/common";
 import { CommitEvent } from "../typechain-types/contracts/from/interfaces/IFromBridge";
 
 // Project's modules
 import OwnerConfig from "./types/config/owner-config";
 import { OwnerSignature } from "./utils/crypto/owner-signature";
-import { Validator } from "./validator";
-import { BridgeContext, BridgeRequest, BridgeRequestId } from "./types/dto/bridge-request";
+import { BridgeRequest, BridgeRequestId } from "./types/dto/bridge-request";
 import { NetworkInfo } from "./types/dto/network-info";
 
 export class TokenOwner {
@@ -115,12 +114,7 @@ export class TokenOwner {
         fromOwnerSigner: Signer,
         fromBridgeAddr: string,
         requestNonce: BigNumber,
-        
-        toNetwork: NetworkInfo,
-        toOwnerSigner: Signer,
-        validator: Validator,
-        tokenUri: BytesLike
-    ) {
+    ): Promise<{ commitment: string, requestTimestamp: BigNumber }> {
         const fromBridge: IFromBridge = await ethers.getContractAt("IFromBridge", fromBridgeAddr, fromOwnerSigner);
         
         const filter: TypedEventFilter<CommitEvent> = fromBridge.filters.Commit(
@@ -129,100 +123,25 @@ export class TokenOwner {
             requestNonce,
             null, null, null);
         
-        
-        const listener: TypedListener<CommitEvent> = async (
-            fromTokenAddr,
-            toChainId, toTokenAddr, toBridgeAddr,
-            tokenOwnerAddr,
-            requestNonce,
-            tokenId,
-            commitment,
-            requestTimestamp,
-            event
-        ) => {
-            console.log("7 Listen to commit success");
-            // Ask validator for secret.
-            const fromChainId: number = await fromOwnerSigner.getChainId();
-            const requestId: BridgeRequestId = new BridgeRequestId(
-                new BridgeContext(
-                    fromChainId, fromTokenAddr, fromBridgeAddr,
-                    toChainId.toNumber(), toTokenAddr, toBridgeAddr
-                ),
+        return new Promise((res, rej) => {
+            const listener: TypedListener<CommitEvent> = async (
+                fromTokenAddr,
+                toChainId, toTokenAddr, toBridgeAddr,
                 tokenOwnerAddr,
-                requestNonce
-            );
-
-            console.log("8 Wait commit tx finalization");
-            while (! await this._isCommitTxFinalized(fromOwnerSigner, requestId));
-            console.log("8 Done");
-            console.log("9 Validator revealSecret");
-            const secret: BytesLike = await validator.revealSecret(requestId);
-            console.log("9 Done");
-            
-            const origin: IToBridge.OriginStruct = {
-                fromChainId: fromChainId,
-                fromToken: fromTokenAddr,
-                fromBridge: fromBridgeAddr
+                requestNonce,
+                tokenId,
+                commitment,
+                requestTimestamp,
+                event
+            ) => {
+                res({ commitment: commitment, requestTimestamp: requestTimestamp });
             };
 
-            const oldTokenInfo: IToBridge.TokenInfoStruct = {
-                tokenId: tokenId,
-                tokenUri: tokenUri
-            }
-
-            console.log("10 Owner getValidatorSignature");
-            const validatorSignature: BytesLike =
-                await fromBridge["getValidatorSignature(uint256)"](requestNonce);
-            console.log("10 Done");
-            
-            // Acquire new token.
-            const toBridge: IToBridge = await ethers.getContractAt("IToBridge", toBridgeAddr, toOwnerSigner);
-            console.log("11 Owner acquire");
-            const acquireTx = await toBridge.acquire(
-                origin,
-                this.address,
-                oldTokenInfo,
-                commitment, secret,
-                requestTimestamp,
-                validatorSignature,
-                {
-                    gasLimit: 2000000,
-                    gasPrice: toNetwork.GAS_PRICE
-                }
-            );
-            const acquireTxReceipt = await acquireTx.wait();
-            console.log("11 Done");
-
-            // Test if bridge succeeded.
-            const logs = acquireTxReceipt.events;
-            if (logs == undefined) {
-                throw("No event emitted");
-            }
-
-            // Search for Acquire event.
-            let logIndex: number = 0;;
-            for (let i in logs) {
-                if (logs[i].address == toBridgeAddr &&
-                    logs[i].topics[0] == utils.id("Acquire(uint256,address,address,address,uint256,bytes32,uint256)")) {
-                    logIndex = parseInt(i);
-                    break;
-                }
-            }
-
-            const eventArgs: any = logs[logIndex].args;
-            const newTokenId: BigNumber = eventArgs["newTokenId"];
-            console.log("New token ID:");
-            console.log(newTokenId);
-
-            const toToken: IERC721 = await ethers.getContractAt("IERC721", toTokenAddr, toOwnerSigner);
-            console.log("Bridge success:");
-            console.log(await toToken.ownerOf(newTokenId) === tokenOwnerAddr);
-        };
-        
-        fromBridge.once(filter, listener);
+            fromBridge.once(filter, listener);
+        });
     }
 
-    private async _isCommitTxFinalized(fromOwnerSigner: Signer, requestId: BridgeRequestId): Promise<boolean> {
+    public async isCommitTxFinalized(fromOwnerSigner: Signer, requestId: BridgeRequestId): Promise<boolean> {
         const fromBridge: IFromBridge = await ethers.getContractAt("IFromBridge", requestId.context.fromBridgeAddr, fromOwnerSigner);
         
         const filter: TypedEventFilter<CommitEvent> = fromBridge.filters.Commit(
