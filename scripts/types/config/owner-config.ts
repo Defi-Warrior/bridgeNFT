@@ -1,5 +1,5 @@
 type OwnerConfig = {
-    readonly NUMBER_OF_BLOCKS_FOR_TX_FINALIZATION: number
+    readonly NUMBER_OF_BLOCK_CONFIRMATIONS: number
 };
 
 export default OwnerConfig;

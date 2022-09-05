@@ -1,7 +1,7 @@
-import { BigNumber, BytesLike, Signer } from "ethers";
+import { BigNumber, BytesLike, Signer, utils } from "ethers";
 import { ethers } from "hardhat";
 
-import { FromNFT } from "../typechain-types";
+import { FromNFT, IERC721, IFromBridge, IToBridge } from "../typechain-types";
 
 import { NETWORK }
     from "../env/network";
@@ -21,12 +21,23 @@ import { Validator }
 import { TokenOwner }
     from "./token-owner";
 
-const fromNetwork:      NetworkInfo = NETWORK.BSC_TEST;
+// const fromNetwork:      NetworkInfo = NETWORK.BSC_TEST;
+const fromNetwork:      NetworkInfo = NETWORK.POLYGON_TEST_MUMBAI;
+// const fromNetwork:      NetworkInfo = NETWORK.POLYGON_MAIN;
+
+// const toNetwork:        NetworkInfo = NETWORK.BSC_TEST;
 const toNetwork:        NetworkInfo = NETWORK.POLYGON_TEST_MUMBAI;
+// const toNetwork:        NetworkInfo = NETWORK.POLYGON_MAIN;
 // Warrior
-const fromTokenAddr:    string      = "0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79";
+// const fromTokenAddr:    string      = "0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79";
+const fromTokenAddr:    string      = "0xfd4D9e1122792dFF031e94c4378FaC48322dbF3e";
+// const fromTokenAddr:    string      = "0x3821fa78B5c8E13C414D4418a408f65DC2529f64";
+
+// const toTokenAddr:      string      = "0x2c1449643E7D0C478eFC47f84AcbBbbF03399a79";
 const toTokenAddr:      string      = "0xfd4D9e1122792dFF031e94c4378FaC48322dbF3e";
-const tokenId:          BigNumber   = BigNumber.from(0);
+// const toTokenAddr:      string      = "0x3821fa78B5c8E13C414D4418a408f65DC2529f64";
+
+const tokenId:          BigNumber   = BigNumber.from(10);
 // Test NFT
 // const fromTokenAddr:    string      = "0xCF74aDC2c44aCE9b98C435Cc16d98fEb96bea268";
 // const toTokenAddr:      string      = "0x93bf0F1Ede716CC2f72A8c7aEb830F7839f20029";
@@ -67,7 +78,7 @@ async function bridge(
     toOwnerSigner: Signer,
     tokenId: BigNumber
 ) {
-    const { fromTokenAddr, fromBridgeAddr } = bridgeContext;
+    const { fromChainId, fromTokenAddr, fromBridgeAddr } = bridgeContext;
     /// PHASE 1: CREATE REQUEST
     /// SIDE: OWNER (FRONTEND)
 
@@ -110,15 +121,10 @@ async function bridge(
     
     // Step 3a: Bind listener to commit event at FromBridge.
     console.log("5 bindListenerToCommitEvent");
-    tokenOwner.bindListenerToCommitEvent(
+    const commitPromise = tokenOwner.bindListenerToCommitEvent(
         fromOwnerSigner,
         fromBridgeAddr,
-        requestNonce,
-
-        toNetwork,
-        toOwnerSigner,
-        validator,
-        tokenUri);
+        requestNonce);
     console.log("5 Done");
         
     // (Step 3b: Send request to validator).
@@ -135,23 +141,85 @@ async function bridge(
 
     /// PHASE 3: LISTEN TO COMMIT TRANSACTION -> ASK FOR SECRET -> ACQUIRE NEW TOKEN
     /// SIDE: OWNER (FRONTEND)
-    // // Step 1: Listen to commit transaction.
-    // const tokenUri;
-    // const commitment;
-    // const requestTimestamp;
-    // const validatorSignature;
+    // Step 1: Listen to commit transaction.
+    const { commitment, requestTimestamp } = await commitPromise;
+    console.log("7 Listen to commit success");
 
-    // // Step 2: Ask validator for secret.
-    // const secret;
+    // Step 2: Ask validator for secret.
+    const requestId: BridgeRequestId = new BridgeRequestId(
+        bridgeContext,
+        tokenOwner.address,
+        requestNonce
+    );
 
-    // // Step 3: Acquire new token.
-    // toBridge.acquire(
-    //     await tokenOwner.address(),
-    //     tokenId, tokenUri,
-    //     commitment, secret,
-    //     requestTimestamp,
-    //     validatorSignature
-    // )
+    console.log("8 Wait commit tx finalization");
+    while (! await tokenOwner.isCommitTxFinalized(fromOwnerSigner, requestId));
+    console.log("8 Done");
+    console.log("9 Validator revealSecret");
+    const secret: BytesLike = await validator.revealSecret(requestId);
+    console.log("9 Done");
+
+    // Step 3: Retrieve validator signature.
+    console.log("10 Owner getValidatorSignature");
+    const fromBridge: IFromBridge = await ethers.getContractAt("IFromBridge", fromBridgeAddr, fromOwnerSigner);
+    const validatorSignature: BytesLike =
+        await fromBridge["getValidatorSignature(uint256)"](requestNonce);
+    console.log("10 Done");
+
+    // Step 4: Acquire new token.
+    const origin: IToBridge.OriginStruct = {
+        fromChainId: fromChainId,
+        fromToken: fromTokenAddr,
+        fromBridge: fromBridgeAddr
+    };
+
+    const oldTokenInfo: IToBridge.TokenInfoStruct = {
+        tokenId: tokenId,
+        tokenUri: tokenUri
+    }
+
+    const { toBridgeAddr } = bridgeContext;
+    const toBridge: IToBridge = await ethers.getContractAt("IToBridge", toBridgeAddr, toOwnerSigner);
+    console.log("11 Owner acquire");
+    const acquireTx = await toBridge.acquire(
+        origin,
+        tokenOwner.address,
+        oldTokenInfo,
+        commitment, secret,
+        requestTimestamp,
+        validatorSignature,
+        {
+            gasLimit: 2000000,
+            gasPrice: toNetwork.GAS_PRICE
+        }
+    );
+    const acquireTxReceipt = await acquireTx.wait();
+    console.log("11 Done");
+
+    // Test if bridge succeeded.
+    const logs = acquireTxReceipt.events;
+    if (logs == undefined) {
+        throw("No event emitted");
+    }
+
+    // Search for Acquire event.
+    let logIndex: number = 0;;
+    for (let i in logs) {
+        if (logs[i].address == toBridgeAddr &&
+            logs[i].topics[0] == utils.id("Acquire(uint256,address,address,address,uint256,bytes32,uint256)")) {
+            logIndex = parseInt(i);
+            break;
+        }
+    }
+
+    const eventArgs: any = logs[logIndex].args;
+    const newTokenId: BigNumber = eventArgs["newTokenId"];
+    console.log("New token ID:");
+    console.log(newTokenId);
+
+    const toToken: IERC721 = await ethers.getContractAt("IERC721", toTokenAddr, toOwnerSigner);
+    console.log("Bridge success:");
+    console.log(await toToken.ownerOf(newTokenId) === tokenOwner.address);
 }
 
 main();
