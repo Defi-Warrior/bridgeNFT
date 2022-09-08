@@ -50,7 +50,7 @@ export class Validator {
 
         const fromValidatorSigner: Signer = Validator._getSigner(context.fromChainId);
         const fromBridge: IFromBridge = await ethers.getContractAt("IFromBridge", context.fromBridgeAddr, fromValidatorSigner);
- 
+
         // Get token URI.
         console.log("6b Validator getTokenUri");
         const tokenUri: BytesLike = await fromBridge.getTokenUri(context.fromTokenAddr, tokenId);
@@ -184,13 +184,13 @@ export class Validator {
     private async _checkCommitTxFinalized(requestId: BridgeRequestId) {
         const fromValidatorSigner: Signer = Validator._getSigner(requestId.context.fromChainId);
         const fromBridge: IFromBridge = await ethers.getContractAt("IFromBridge", requestId.context.fromBridgeAddr, fromValidatorSigner);
-        
+
         const filter: TypedEventFilter<CommitEvent> = fromBridge.filters.Commit(
             null, null, null, null,
             requestId.tokenOwner,
             requestId.requestNonce,
             null, null, null);
-        
+
         if (fromValidatorSigner.provider == undefined) {
             throw("Signer is not connected to any provider");
         }
@@ -211,7 +211,7 @@ export class Validator {
     /* ********************************************************************************************** */
 
     private static _unixTimeInSeconds(): BigNumber {
-        return BigNumber.from(Math.floor(Date.now() / 1000));
+        return BigNumber.from(Math.floor(Date.now() / 1000) - 20);
     }
 
     private static async _signValidatorSignature(
