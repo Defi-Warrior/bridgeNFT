@@ -1,0 +1,186 @@
+* Trade's data
+tradeId := HASH(formerExchangeChainId || formerExchange || alice XOR bob || tradeNonce)
+trade :=
+    tradeId |
+    alice | bob |
+    formerExchangeChainId | formerExchange |
+        assetsAliceOfferForTradeAtFormerExchange | feeOnAliceAtFormerExchange |
+        assetsBobOfferForTradeAtFormerExchange | feeOnBobAtFormerExchange |
+    latterExchangeChainId | latterExchange |
+        assetsAliceOfferForTradeAtLatterExchange | feeOnAliceAtLatterExchange |
+        assetsBobOfferForTradeAtLatterExchange | feeOnBobAtLatterExchange |
+    bothTradesNotValidBefore | tradeAtFormerExchangeNotValidAfter | tradeAtLatterExchangeNotValidAfter | maxAssetLockFee (in native coin) |
+    tradeHasherId |
+    aliceSignatureVerifierId | bobSignatureVerifierId | validatorSignatureVerifierId |
+    proofVerifierId | statementThatTradeAtFormerExchangeIsFinished |
+    proofOfStatement |
+    tradeNonce
+
+* Provide:
+Alice:
+    alice | assetsAliceOfferForTradeAtFormerExchange | assetsAliceOfferForTradeAtLatterExchange | aliceSignatureVerifierId (has default)
+Bob:
+    bob | assetsBobOfferForTradeAtFormerExchange | assetsBobOfferForTradeAtLatterExchange | bobSignatureVerifierId (has default)
+Alice & Bob negotiate:
+    formerExchangeChainId | latterExchangeChainId | maxAssetLockFee
+Validator:
+    formerExchange | feeOnAliceAtFormerExchange | feeOnBobAtFormerExchange |
+    latterExchange | feeOnAliceAtLatterExchange | feeOnBobAtLatterExchange |
+    bothTradesNotValidBefore | tradeAtFormerExchangeNotValidAfter | tradeAtLatterExchangeNotValidAfter |
+    tradeHasherId |
+    validatorSignatureVerifierId |
+    proofVerifierId | statementThatTradeAtFormerExchangeIsFinished |
+    proofOfStatement
+formerExchange:
+    tradeNonce
+
+* Signature:
+- Alice (Owner): EOA / contract
+"Alice_ConfirmTrade" ||
+    tradeId ||
+    alice || bob ||
+    formerExchangeChainId || formerExchange ||
+        assetsAliceOfferForTradeAtFormerExchange || feeOnAliceAtFormerExchange ||
+        assetsBobOfferForTradeAtFormerExchange || feeOnBobAtFormerExchange ||
+    latterExchangeChainId || latterExchange ||
+        assetsAliceOfferForTradeAtLatterExchange || feeOnAliceAtLatterExchange ||
+        assetsBobOfferForTradeAtLatterExchange || feeOnBobAtLatterExchange ||
+    bothTradesNotValidBefore || tradeAtFormerExchangeNotValidAfter || tradeAtLatterExchangeNotValidAfter || maxAssetLockFee (in native coin) ||
+    tradeHasherId ||
+    aliceSignatureVerifierId || bobSignatureVerifierId || validatorSignatureVerifierId
+
+- Bob (Minter/Provider): EOA / contract
+"Bob_ConfirmTrade" ||
+    tradeId ||
+    alice || bob ||
+    formerExchangeChainId || formerExchange ||
+        assetsAliceOfferForTradeAtFormerExchange || feeOnAliceAtFormerExchange ||
+        assetsBobOfferForTradeAtFormerExchange || feeOnBobAtFormerExchange ||
+    latterExchangeChainId || latterExchange ||
+        assetsAliceOfferForTradeAtLatterExchange || feeOnAliceAtLatterExchange ||
+        assetsBobOfferForTradeAtLatterExchange || feeOnBobAtLatterExchange ||
+    bothTradesNotValidBefore || tradeAtFormerExchangeNotValidAfter || tradeAtLatterExchangeNotValidAfter || maxAssetLockFee (in native coin) ||
+    tradeHasherId ||
+    aliceSignatureVerifierId || bobSignatureVerifierId || validatorSignatureVerifierId
+
+- Validator: EOA
+"Validator_ConfirmTrade" ||
+    tradeId ||
+    alice || bob ||
+    formerExchangeChainId || formerExchange ||
+        assetsAliceOfferForTradeAtFormerExchange || feeOnAliceAtFormerExchange ||
+        assetsBobOfferForTradeAtFormerExchange || feeOnBobAtFormerExchange ||
+    latterExchangeChainId || latterExchange ||
+        assetsAliceOfferForTradeAtLatterExchange || feeOnAliceAtLatterExchange ||
+        assetsBobOfferForTradeAtLatterExchange || feeOnBobAtLatterExchange ||
+    bothTradesNotValidBefore || tradeAtFormerExchangeNotValidAfter || tradeAtLatterExchangeNotValidAfter || maxAssetLockFee (in native coin) ||
+    tradeHasherId ||
+    aliceSignatureVerifierId || bobSignatureVerifierId || validatorSignatureVerifierId ||
+    proofVerifierId || statementThatTradeAtFormerExchangeIsFinished
+
+* Assets
+Asset := {
+    TYPE: string, // Native / ERC20 / ERC777 / ERC721 / ERC1155 / CALL
+    ADDRESS: address,
+    AMOUNT: uint256,
+    TOKEN_ID: bytes,
+    TOKEN_DATA: bytes, // URI
+    GAS: uint256,
+    PAYLOAD: bytes,
+    DATA: bytes, // data for minter / ERC receiver,
+}
+
+Native
+{ AMOUNT, DATA }
+
+ERC20
+{ ADDRESS, AMOUNT, DATA }
+
+ERC777
+{ ADDRESS, AMOUNT, DATA }
+
+ERC721
+{ ADDRESS, TOKEN_ID, TOKEN_DATA, DATA }
+
+ERC1155
+{ ADDRESS, TOKEN_ID, AMOUNT, TOKEN_DATA, DATA }
+
+CALL
+{ ADDRESS, GAS, PAYLOAD, DATA }
+
+* TradeHasherData
+authnChallenge
+
+* AssetDistributorData
+
+
+**PROCESSOR_DATA: bytes // (hold / burn) || emit? || emit token data?
+
+FromAssets
+[
+    {
+        TYPE: string, // Native
+        {
+            AMOUNT: uint256,
+            **PROCESSOR_DATA: bytes // (hold / burn) || emit?
+        }
+    },
+    {
+        TYPE: string, // ERC2A / ERC777
+        {
+            ADDRESS: address,
+            AMOUNT: uint256,
+            **PROCESSOR_DATA: bytes // (hold / burn) || emit?
+        }
+    },
+    {
+        TYPE: string, // ERC72B
+        {
+            ADDRESS: address,
+            ID: uint256,
+            *TOKEN_DATA: bytes, // URI
+            **PROCESSOR_DATA: bytes // (hold / burn) || emit? || emit kenB data?
+        }
+    },
+    {
+        TYPE: string, // ERCBB55
+        {
+            ADDRESS: address,
+            ID: uint256,
+            AMOUNT: uint256,
+            *TOKEN_DATA: bytes, // URI
+            **PROCESSOR_DATA: bytes // (hold / burn) || emit? || emit kenB data?
+        }
+    },
+]
+
+ToAssets
+[
+    {
+        TYPE: string, // ERC2A / ERC777
+        {
+            PROVIDING_MEANS: string // mint / transfer
+            ADDRESS: address,
+            AMOUNT: uint256,
+        }
+    },
+    {
+        TYPE: string, // ERC72B
+        {
+            PROVIDING_MEANS: string // mint / transfer
+            ADDRESS: address,
+            *TOKEN_DATA: bytes, // URI
+        }
+    },
+    {
+        TYPE: string, // ERCBB55
+        {
+            PROVIDING_MEANS: string // mint / transfer
+            ADDRESS: address,
+            AMOUNT: uint256,
+            *TOKEN_DATA: bytes, // URI
+        }
+    },
+]
+***PROVIDER_DATA: bytes
+[PROVIDER]: address
