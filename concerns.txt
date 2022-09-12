@@ -21,14 +21,16 @@ Miscellaneous
 
 On-chain general
 + Account roles:
-    exchangeManager[], hasherRegistryManager[], signatureVerifierRegistryManager[], proofVerifierRegistryManager[], processorProxyManager[], validator[] -> master[]
+    configManagingAuthority, hasherAdder, sigVerifierAdder, proofVerifierAdder, processorAdder, validatingAuthority -> revokingAuthority, appointingAuthority
+    stopper(1), pauser, unpauser (processorProxy); 
+    * Authority { members[], signatureVerifierId }
     Save signatureVerifierId for all roles except validator at admin contract
     Change validator/master -> call release all approved assets to processorProxy -> all processors
 + Contract roles:
-    AC: exchange(2), hasherRegistry(1), signatureVerifierRegistry(1), proofVerifierRegistry(1), processorProxy(1) -> admin(1)
+    AC: exchange(2), hasherRegistry(1), sigVerifierRegistry(1), proofVerifierRegistry(1), processorProxy(1) -> admin(1)
     No AC:
         tradeIdHasher(1), tradeHasher -> hasherRegistry
-        signatureVerifier -> signatureVerifierRegistry
+        signatureVerifier -> sigVerifierRegistry
         proofVerifier -> proofVerifierRegistry
         database(3),
         processor -> processorProxy
