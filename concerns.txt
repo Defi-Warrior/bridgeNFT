@@ -10,27 +10,24 @@ Miscellaneous
     Diff Id, nonce fromBridge, >	=> double speding risk
     Diff Id, nonce toBridge, <		=> safe by conflict fromAssets
     Diff Id, nonce toBridge, >		=> double speding risk
-    (Check acquired: mark trade done 1st half by id)
-+ Send proof on exchange
+    (Check acquired: mark trade done former half by tradeId)
 + Upgrade to OpenZeppelin 4.8
-+ Not encode data structure in exchange to support EIP712 (may be diff in bridge)
-+ Support traderA's assets on traderB's chain and vice versa
++ Not encode data structure sent to operator to support EIP712 (may be diff in bridge)
 - Full script
 - Collusion among 4 parties (2 traders, validator, marketplace) against one actor
-- UI/UX
+- Imagine UI/UX
 
 On-chain general
 + Account roles:
-    configManagingAuthority, hasherAdder, sigVerifierAdder, proofVerifierAdder, processorAdder, validatingAuthority -> revokingAuthority, appointingAuthority
-    stopper(1), pauser, unpauser (processorProxy); 
+    configManagingAuthority, hasherAdder, signatureVerifierAdder, proofVerifierAdder, processorAdder, validatingAuthority -> revokingAuthority, appointingAuthority
+    stopper, pauser, unpauser
     * Authority { members[], signatureVerifierId }
-    Save signatureVerifierId for all roles except validator at admin contract
-    Change validator/master -> call release all approved assets to processorProxy -> all processors
+    * Change validatingAuthority/revokingAuthority/appointingAuthority -> pause entire system
 + Contract roles:
-    AC: exchange(2), hasherRegistry(1), sigVerifierRegistry(1), proofVerifierRegistry(1), processorProxy(1) -> admin(1)
+    AC: operator(2), hasherRegistry(1), signatureVerifierRegistry(1), proofVerifierRegistry(1), processorProxy(1) -> admin(1)
     No AC:
         tradeIdHasher(1), tradeHasher -> hasherRegistry
-        signatureVerifier -> sigVerifierRegistry
+        signatureVerifier -> signatureVerifierRegistry
         proofVerifier -> proofVerifierRegistry
         database(3),
         processor -> processorProxy
@@ -43,47 +40,44 @@ On-chain general
 + Check if address 0 when decode from control data
 + Validator Revocation -> observer pattern
 + Use seperate admin contract for access control
-+ Restrict call to distributor, store to database to be originated only from exchange/bridge 
++ Restrict call to processorProxy, store to database to be originated only from operator
 + Rewrite EnumerableMap
 + Same chain -> 1 tx
 + Diff chain -> hash data for the other chain
 + Exchange's CALL restrict on function signature and callee address.
 + External call incurs 1 copy action for calldata, 2 copy actions for memory -> try to use calldata, reduce external call if possible
-+ 1 validUntil -> 1stExchangeValidUntil < 2ndExchangeValidUntil
-+ Require 2ndExchangeValidUntil - 1stExchangeValidUntil > some preset value to allow time for 2nd
++ Require latterTradeNotValidAfter - formerTradeNotValidAfter > some preset value to allow time for the latter
 + Require source address in transferFrom diff from processor's address
 
 + Use inheritance to seperate & choose which component to make dynamic
-+ Dynamic component: string id -> uint16 id + json string description
++ Dynamic component: string id -> uint256 id + json string description
 + Make commitment scheme dynamic & public => commitment -> statement, secret -> proof
 + Make hasher & signature verifier on hash dynamic & public
 + TradeId hash is fix, do not make dynamic -> tradeId := keccak256(formerExchangeChainId || formerExchange || traderA XOR traderB || tradeNonce)
-+ Delegate hash to tradeId to static public TradeIdHasher contract, use EIP712
++ Delegate hash to tradeId to static public TradeIdHasher contract, do not use EIP712
 + Make distributor dynamic
 + Make processor dynamic
-- Make DB dynamic
++ eip712 restrict signature on 1 chain -> use 2 signatures for 2 chains -> 6 signatures total
++ Make DB dynamic -> No, 3 fixed databases
++ BLS threshold technique
++ Send another signature as proof of approval when minting -> send mintApprover's address
 
 - What to store, to emit?
-- Deposit value to CALL processor?
 - Store block number of request in contract storage for search
-- Send another signature as proof of approval when minting
 - From/ToChainId, From/ToBridge duplicate
-- eip712 restrict signature on 1 chain?
-- BLS threshold technique
 - Divide & reduce redundant fields in DB
-- Revoke approval at processors when add distributor
 - Ignore validator's signature, proof if same chain?
+- Support tryTrade view function (check requirements without transfer/lock)
 
-FormerExchange
+FormerTradeOperator
 + Emit tradeHash (because of stateless validator)
 + Store nonce here in order not to block future trade between same trader pair
 
-LatterExchange
+LatterTradeOperator
 + Lock assets that only allow one tradeId to acquire
-+ Add 2 public view functions to check if a claim's acquirement and denial status, to support multiple servers and enhance UX
-+ Make isAcquired, isDenied functions public
++ Make isAcquired, isDenied functions public, add isFinished function = isAcquired || isDenied
 + Change from commitment to tradeId for id
-+ Restrict same chain exchange call to be only from formerExchange
++ Restrict same chain exchange call to be only from FormerTradeOperator
 - Support lock for exchange
 - Require diff chain when lock
 
@@ -91,10 +85,9 @@ Off-chain general
 - MEV attack (node trust)
 
 Validator
-+ secret <- MAC(tradeId) => secret <- MAC(tradeHash)
++ secret <- PRF(tradeId) => secret <- PRF(tradeHash)
 + Not allow trade valid forever to rotate secret generating key
+- Reveal signature after or before seeing traders'? Sign including raders' sigs?
+- Could vadiator delegate to another to perform FormerTrade?
 
 Trader
-
-Things to do
-Dynamic DB -> lock -> finish data design -> code EnumerableMap

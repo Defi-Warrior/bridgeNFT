@@ -1,8 +1,8 @@
 | Role                    | No. accounts | Appointable by              | Revocable by                | Action at revocation/update | Operate at            |
 | ----------------------- | ------------ | --------------------------- | --------------------------- | --------------------------- | --------------------- |
 | stopper                 | 1            | None, fixed from deployment | None, fixed from deployment | N/A                         | Admin                 |
-| unpauser                |              |                             |                             |                             | Admin                 |
-| pauser                  |              |                             |                             |                             | Admin                 |
+| unpauser                | 1            | None, fixed from deployment | None, fixed from deployment | N/A                         | Admin                 |
+| pauser                  | 1            | None, fixed from deployment | None, fixed from deployment | N/A                         | Admin                 |
 | ----------------------- | ------------ | --------------------------- | --------------------------- | --------------------------- | --------------------- |
 | appointingAuthority     | >=1          | None, self-update           | None, self-update           | pause                       | Admin                 |
 | revokingAuthority       | >=1          | None, self-update           | None, self-update           | pause                       | Admin                 |
